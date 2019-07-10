@@ -26,37 +26,7 @@ conda install auxiliary/python-blender-2.77-py36_0.tar.bz2
 
 ### Datasets
 Download and prepare the datasets for training and testing
-```shell
-## Pascal3D+
-cd Pascal3D
-wget 'ftp://cs.stanford.edu/cs/cvgl/PASCAL3D+_release1.1.zip'
-unzip PASCAL3D+_release1.1.zip && rm PASCAL3D+_release1.1.zip
-mv PASCAL3D+_release1.1/* ./ && rm -r PASCAL3D+_release1.1
-rm CAD/*.mat && python off2obj.py
-python create_annotation.py
-python render_pascal3d.py
 
-## ObjectNet3D
-cd ..
-wget 'ftp://cs.stanford.edu/cs/cvgl/ObjectNet3D/ObjectNet3D_images.zip'
-unzip ObjectNet3D_images.zip && rm ObjectNet3D_images.zip
-cd ObjectNet3D
-wget 'ftp://cs.stanford.edu/cs/cvgl/ObjectNet3D/ObjectNet3D_cads.zip'
-unzip ObjectNet3D_cads.zip && rm ObjectNet3D_cads.zip
-mv ObjectNet3D/* ./ && rm -r ObjectNet3D
-wget 'ftp://cs.stanford.edu/cs/cvgl/ObjectNet3D/ObjectNet3D_annotations.zip'
-unzip ObjectNet3D_annotations.zip && rm ObjectNet3D_annotations.zip
-mv ObjectNet3D/* ./ && rm -r ObjectNet3D
-wget 'ftp://cs.stanford.edu/cs/cvgl/ObjectNet3D/ObjectNet3D_image_sets.zip'
-unzip ObjectNet3D_image_sets.zip && rm ObjectNet3D_image_sets.zip
-mv ObjectNet3D/* ./ && rm -r ObjectNet3D
-python create_annotation.py
-python render_object3d.py
-
-cd ../
-wget 'vision.princeton.edu/projects/2010/SUN/SUN397.tar.gz'
-python create_list.py
-```
 
 ### Models
 To download pretrained models (Pascal3D, ObjectNet3D, ShapeNetSyn):
