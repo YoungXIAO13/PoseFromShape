@@ -34,7 +34,29 @@ unzip pix3d.zip && rm pix3d.zip
 python clean_dataset.py
 python create_annotation.py
 python render.py
+cd ..
 
+## LineMod
+cd LineMod
+wget 'ptak.felk.cvut.cz/6DB/public/datasets/hinterstoisser/test.zip'
+wget 'ptak.felk.cvut.cz/6DB/public/datasets/hinterstoisser/models.zip'
+unzip test.zip && rm test.zip
+unzip models.zip && rm models.zip
+python ply2obj.py
+python create_annotation.py
+python render.py
+cd ..
+
+## SUN397
+cd SUN
 wget 'vision.princeton.edu/projects/2010/SUN/SUN397.tar.gz'
-python create_list.py
+tar -xvf SUN397.tar.gz && rm SUN397.tar.gz
+python resize_img.py
+cd ..
 
+## ShapeNetCore
+cd ShapeNetCore
+wget 'shapenet.cs.stanford.edu/shapenet/obj-zip/ShapeNetCore.v2.zip'
+unzip ShapeNetCore.v2.zip && rm ShapeNetCore.v2.zip
+python render.py
+cd ..

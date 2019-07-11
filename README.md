@@ -1,19 +1,22 @@
 # PoseFromShape
-(BMVC 2019)PyTorch implementation of Paper "Pose from Shape: Deep Pose Estimation for Arbitrary 3D Objects"
+(BMVC 2019) PyTorch implementation of Paper "Pose from Shape: Deep Pose Estimation for Arbitrary 3D Objects"
 
 
 ## Table of Content
+* [Installation](#installation)
+* [Training](#training)
+* [Testing](#testing)
 
 ## Installation
 
 ### Dependencies
-The code can be used in **Linux** system with the the following dependencies: Python 3.6, Pytorch 1.0.1, Python-Blender 2.77
+The code can be used in **Linux** system with the the following dependencies: Python 3.6, Pytorch 1.0.1, Python-Blender 2.77, meshlabserver
 
 We recommend to utilize conda environment to install all dependencies and test the code.
 
 ```shell
 ## Download the repository
-git clone ...
+git clone 'https://github.com/YoungXIAO13/PoseFromShape'
 cd PoseFromShape
 
 ## Create python env with relevant packages
@@ -24,28 +27,62 @@ source activate PoseFromShape
 conda install auxiliary/python-blender-2.77-py36_0.tar.bz2
 ```
 
-### Datasets
-Download and prepare the datasets for training and testing
+### Datasets and Models
+To download and prepare the datasets for training and testing (Pascal3D, ObjectNet3D, ShapeNetCore, SUN397, Pix3D, LineMod):
+```shell
+cd data
+bash prepare_data.sh
+```
 
-
-### Models
-To download pretrained models (Pascal3D, ObjectNet3D, ShapeNetSyn):
+To download the pretrained models (Pascal3D, ObjectNet3D, ShapeNetCore):
 ```shell
 cd model
-bash download_model.sh
+bash download_models.sh
 ```
 
 ## Training
+To train on the Pascal3D dataset with real images:
+```shell
+cd run
+bash train_Pascal3D.sh
+```
 
+To train on the ObjectNet3D dataset with real images:
+```shell
+cd run
+bash trainn_ObjectNet3D.sh
+```
+
+To train on the ShapeNetCore dataset with synthetic images:
+```shell
+cd run
+bash trainn_ShapeNetCore.sh
+```
 
 ## Testing
+While the network was trained on real or synthetic images, all the testing was done on real images.
 
 ### Pascal3D+
+To test on the Pascal3D dataset with real images:
+```shell
+cd run
+bash test_Pascal3D.sh
+```
 
 ### ObjectNet3D
-
+```shell
+cd run
+bash test_ObjectNet3D.sh
+```
 ### Pix3D
+```shell
+cd run
+bash test_Pix3D.sh
+```
 
 ### LineMod
+```shell
+cd run
+bash test_LineMod.sh
+```
 
-## Demo

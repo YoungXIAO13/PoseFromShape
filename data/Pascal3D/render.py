@@ -31,9 +31,11 @@ for cat in tqdm(cats):
         os.open(logfile, os.O_WRONLY)
             
         # render object reference images
-        render_obj_grid(obj, out, [512, 512], 30, 5, 1, 1.5, False, 0, '-Y', 'Z')
+        render_obj_grid(obj, out, [512, 512], 30, 5, 1, 1.5, False, '-Y', 'Z')
         
         # disable output redirection
         os.close(1)
         os.dup(old)
         os.close(old)
+        
+os.system("rm render.log")

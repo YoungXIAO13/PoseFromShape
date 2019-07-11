@@ -35,7 +35,7 @@ for cat in tqdm(cats):
                 os.makedirs(example_out_dir)
                 
             # redirect output to log file
-            logfile = 'render_grid.log'
+            logfile = 'render.log'
             open(logfile, 'a').close()
             old = os.dup(1)
             sys.stdout.flush()
@@ -43,10 +43,11 @@ for cat in tqdm(cats):
             os.open(logfile, os.O_WRONLY)
 
             # Render object without texture
-            render_obj_grid(obj, example_out_dir, [512, 512], 30, 5, 1, 1.5, False, 0, None, None)
+            render_obj_grid(obj, example_out_dir, [512, 512], 30, 5, 1, 1.5, False, None, None)
 
             # disable output redirection
             os.close(1)
             os.dup(old)
             os.close(old)
-    
+
+os.system("rm render.log")
