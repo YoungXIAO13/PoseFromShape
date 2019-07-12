@@ -15,35 +15,30 @@ from auxiliary.model import PoseEstimator, BaselineEstimator
 from auxiliary.dataset import *
 from auxiliary.utils import *
 from auxiliary.loss import *
-from eval import val
+from evaluation import val
 
 # =================PARAMETERS=============================== #
 parser = argparse.ArgumentParser()
 parser.add_argument('--lr', type=float, default=0.0001, help='learning rate of optimizer')
 parser.add_argument('--decrease', type=int, default=100, help='epoch to decrease')
 parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
-parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
+parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
 parser.add_argument('--n_epoch', type=int, default=200, help='number of epochs to train for')
 parser.add_argument('--print_freq', type=int, default=50, help='frequence of output print')
 
 parser.add_argument('--shape', type=str, default=None, help='shape representation')
-parser.add_argument('--separate_branch', action='store_true', help='use separated branch for classification and regression network')
 parser.add_argument('--model', type=str, default=None, help='optional reload model path')
 parser.add_argument('--pretrained_resnet', action='store_true', help='use pretrained ResNet')
-parser.add_argument('--channels', type=int, default=3, help='input channels for the ResNet')
-parser.add_argument('--num_model', type=int, default=200, help='number of 3d models used for each category')
 parser.add_argument('--img_feature_dim', type=int, default=1024, help='feature dimension for images')
 parser.add_argument('--shape_feature_dim', type=int, default=256, help='feature dimension for shapes')
 parser.add_argument('--azi_classes', type=int, default=24, help='number of class for azimuth')
 parser.add_argument('--ele_classes', type=int, default=12, help='number of class for elevation')
 parser.add_argument('--inp_classes', type=int, default=24, help='number of class for inplane rotation')
 
-parser.add_argument('--csv_file', type=str, default='annotation_200_pascal.txt', help='training annotation')
-parser.add_argument('--dataset', type=str, default='Object3D', help='training dataset (Object3D / Pascal3D)')
+parser.add_argument('--dataset', type=str, default=None, help='training dataset (ObjectNet3D / Pascal3D / ShapeNetCore)')
 parser.add_argument('--mutated', action='store_true', help='activate mutated training mode')
 parser.add_argument('--novel', action='store_true', help='whether to test on novel cats')
 parser.add_argument('--keypoint', action='store_true', help='whether to use only training samples with anchors')
-parser.add_argument('--mode', type=str, default='RGB', help='image input mode')
 parser.add_argument('--num_render', type=int, default=12, help='number of render images used in each sample')
 parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
 parser.add_argument('--random_range', type=int, default=0, help='variation range for randomized references')
@@ -62,29 +57,39 @@ torch.manual_seed(opt.manualSeed)
 
 
 # =================CREATE DATASET=========================== #
-if opt.dataset == 'Object3D':
+root_dir = os.path.join('data', opt.dataset)
+annotation_file = '{}.txt'.format(opt.dataset)
+
+if opt.dataset == 'ObjectNet3D':
     test_cats = ['bed', 'bookshelf', 'calculator', 'cellphone', 'computer', 'door', 'filing_cabinet', 'guitar', 'iron',
                  'knife', 'microwave', 'pen', 'pot', 'rifle', 'shoe', 'slipper', 'stove', 'toilet', 'tub', 'wheelchair']
-    dataset_train = Pascal3D(train=True, annotation_file=opt.csv_file, cat_choice=test_cats, shape=opt.shape,
-                             keypoint=opt.keypoint, novel=opt.novel, mutated=opt.mutated, mode=opt.mode,
+    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+                             cat_choice=test_cats, keypoint=opt.keypoint, novel=opt.novel, mutated=opt.mutated,
                              render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pascal3D(train=False, annotation_file=opt.csv_file, cat_choice=test_cats, shape=opt.shape,
-                            keypoint=opt.keypoint, mutated=False, mode=opt.mode, novel=opt.novel,
+    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+                            cat_choice=test_cats, keypoint=opt.keypoint, mutated=False, novel=opt.novel,
                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
 elif opt.dataset == 'Pascal3D':
     test_cats = ['bus', 'motorbike'] if opt.novel else None
-    dataset_train = Pascal3D(root_dir='/home/xiao/Datasets/Pascal3D', annotation_file=opt.csv_file, shape=opt.shape,
-                             train=True, mutated=opt.mutated, mode=opt.mode, cat_choice=test_cats, novel=opt.novel,
+    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+                             mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
                              render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pascal3D(root_dir='/home/xiao/Datasets/Pascal3D', annotation_file=opt.csv_file, shape=opt.shape,
-                            train=False, mutated=False, mode=opt.mode, cat_choice=test_cats, novel=opt.novel,
+    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+                            mutated=False, cat_choice=test_cats, novel=opt.novel,
                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-else:
+elif opt.dataset == 'ShapeNetCore':
+    # train on synthetic data and evaluate on real data
+    test_root_dir = os.path.join('data', 'Pix3D')
+    test_annotation_file = 'Pix3D.txt'
     test_cats = ['2818832', '2871439', '2933112', '3001627', '4256520', '4379243']
-    dataset_train = ShapeNet(train=True, shape=opt.shape, model_number=opt.num_model, annotation_file=opt.csv_file,
-                             mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel, mode=opt.mode,
+    
+    dataset_train = ShapeNet(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+                             mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
                              render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pix3d(shape=opt.shape, render_number=opt.num_render, tour=opt.tour, cat_choice=None)
+    dataset_eval = Pix3d(root_dir=test_root_dir, annotation_file=test_annotation_file,
+                         shape=opt.shape, render_number=opt.num_render, tour=opt.tour)
+else:
+    sys.exit(0)
 
 train_loader = DataLoader(dataset_train, batch_size=opt.batch_size, shuffle=True, num_workers=opt.workers, drop_last=True)
 eval_loader = DataLoader(dataset_eval, batch_size=opt.batch_size, shuffle=False, num_workers=opt.workers, drop_last=True)
@@ -93,12 +98,12 @@ eval_loader = DataLoader(dataset_eval, batch_size=opt.batch_size, shuffle=False,
 
 # ================CREATE NETWORK============================ #
 if opt.shape is None:
-    model = BaselineEstimator(img_feature_dim=opt.img_feature_dim, separate_branch=opt.separate_branch,
+    model = BaselineEstimator(img_feature_dim=opt.img_feature_dim,
                               azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes)
 else:
     model = PoseEstimator(shape=opt.shape, shape_feature_dim=opt.shape_feature_dim, img_feature_dim=opt.img_feature_dim,
                           azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes,
-                          render_number=opt.num_render,  separate_branch=opt.separate_branch, channels=opt.channels)
+                          render_number=opt.num_render)
 model.cuda()
 if opt.model is not None:
     load_checkpoint(model, opt.model)
@@ -123,9 +128,7 @@ criterion_reg = DeltaLoss(bin_size)
 training_mode = 'train_baseline_{}'.format(opt.dataset) if opt.shape is None else 'train_{}_{}'.format(opt.shape, opt.dataset)
 if opt.novel:
     training_mode = '{}_novel'.format(training_mode)
-now = time.strftime("%Y-%m-%d_%H-%M-%S", time.gmtime())
-save_folder = training_mode + '_' + now
-result_path = os.path.join(os.getcwd(), 'results', save_folder)
+result_path = os.path.join(os.getcwd(), 'model', training_mode)
 if not os.path.exists(result_path):
     os.makedirs(result_path)
 logname = os.path.join(result_path, 'training_log.txt')

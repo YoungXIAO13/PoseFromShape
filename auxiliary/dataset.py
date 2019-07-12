@@ -79,7 +79,7 @@ def resize_padding(im, desired_size):
     return new_im
 
 
-def read_multiviwes(render_transform, render_example_path, render_number, tour, mutation, mode, random_canonical=False):
+def read_multiviwes(render_transform, render_example_path, render_number, tour, mutation):
     """
     Read multi view rendered images from the target path
     :param render_transform: image processing applied to the rendered image
@@ -87,8 +87,6 @@ def read_multiviwes(render_transform, render_example_path, render_number, tour, 
     :param render_number: number of rendered images used as 3D shape representation
     :param tour: number of elevations of the rendered images
     :param mutation: randomization with respect to the canonical view in term of azimuth
-    :param mode: image format at the input
-    :param random_canonical: randomization of canonical view
     :return:
     """
     render_names = [name for name in os.listdir(render_example_path)]
@@ -100,35 +98,17 @@ def read_multiviwes(render_transform, render_example_path, render_number, tour, 
     if tour == 1:
         render_ids = np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step]
     elif tour == 2:
-        if random_canonical:
-            render_ids = np.concatenate(
-                (np.concatenate((renders_low[mutation[0]:], renders_low[:mutation[0]]))[::step],
-                 np.concatenate((renders_mid[mutation[0]:], renders_mid[:mutation[0]]))[::step],
-                 np.concatenate((renders_low[mutation[1]:], renders_low[:mutation[1]]))[::step],
-                 np.concatenate((renders_mid[mutation[1]:], renders_mid[:mutation[1]]))[::step],
-                 np.concatenate((renders_low[mutation[2]:], renders_low[:mutation[2]]))[::step],
-                 np.concatenate((renders_mid[mutation[2]:], renders_mid[:mutation[2]]))[::step]
-                 ))
-        else:
-            render_ids = np.concatenate((np.concatenate((renders_low[mutation:], renders_low[:mutation]))[::step],
-                                         np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step]))
+        render_ids = np.concatenate((np.concatenate((renders_low[mutation:], renders_low[:mutation]))[::step],
+                                     np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step]))
     else:
         render_ids = np.concatenate((np.concatenate((renders_low[mutation:], renders_low[:mutation]))[::step],
                                      np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step],
                                      np.concatenate((renders_up[mutation:], renders_up[:mutation]))[::step]))
     for i in range(0, len(render_ids)):
-        if mode == 'RGB':
-            render = Image.open(os.path.join(render_example_path, render_names[render_ids[i]]))
-            render = render.convert('RGB')
-            render = render_transform(render)
-            renders = render.unsqueeze(0) if i == 0 else torch.cat((renders, render.unsqueeze(0)), 0)
-        else:
-            depth = Image.open(os.path.join(render_example_path, render_names[render_ids[i] * 2]))
-            normal = Image.open(os.path.join(render_example_path, render_names[render_ids[i] * 2 + 1]))
-            depth = render_transform(depth)
-            normal = render_transform(normal)
-            mix = torch.cat((depth, normal), 0)
-            renders = mix.unsqueeze(0) if i == 0 else torch.cat((renders, mix.unsqueeze(0)), 0)
+        render = Image.open(os.path.join(render_example_path, render_names[render_ids[i]]))
+        render = render.convert('RGB')
+        render = render_transform(render)
+        renders = render.unsqueeze(0) if i == 0 else torch.cat((renders, render.unsqueeze(0)), 0)
     return renders
 
 
@@ -137,10 +117,9 @@ def read_multiviwes(render_transform, render_example_path, render_number, tour, 
 # ================================================= #
 class Pascal3D(data.Dataset):
     def __init__(self,
-                 root_dir='/home/xiao/Datasets/Object3D', annotation_file='object3d_annotation.txt', input_dim=224,
-                 shape=None, render_dir='Renders_semi_sphere',
-                 mutated=False, novel=True, keypoint=False, train=True, cat_choice=None, mode='RGB', render_number=12,
-                 tour=2, random_range=0, random_canonical=False, random_model=False):
+                 root_dir, annotation_file, input_dim=224, shape=None, render_dir='Renders_semi_sphere',
+                 mutated=False, novel=True, keypoint=False, train=True, cat_choice=None, render_number=12,
+                 tour=2, random_range=0, random_model=False):
 
         self.root_dir = root_dir
         self.input_dim = input_dim
@@ -150,9 +129,7 @@ class Pascal3D(data.Dataset):
         self.render_number = render_number
         self.train = train
         self.mutated = mutated
-        self.mode = mode
         self.random_range = random_range
-        self.random_canonical = random_canonical
         self.random_model = random_model
         self.bad_cats = ['ashtray', 'basket', 'bottle', 'bucket', 'can', 'cap', 'cup', 'fire_extinguisher', 'fish_tank',
                          'flashlight', 'helmet', 'jar', 'paintbrush', 'pen', 'pencil', 'plate', 'pot', 'road_pole',
@@ -162,7 +139,7 @@ class Pascal3D(data.Dataset):
         frame = pd.read_csv(os.path.join(root_dir, annotation_file))
         frame = frame[frame.elevation != 90]
         frame = frame[frame.difficult == 0]
-        if annotation_file == 'object3d_annotation.txt':
+        if annotation_file == 'ObjectNet3D.txt':
             if keypoint:
                 frame = frame[frame.has_keypoints == 1]
                 frame = frame[frame.truncated == 0]
@@ -192,7 +169,7 @@ class Pascal3D(data.Dataset):
         self.im_transform = transforms.Compose([transforms.ToTensor(), normalize])
 
         # define data preprocessing for rendered multi view images
-        self.render_path = 'crop' if mode == 'RGB' else 'normal_depth_crop'
+        self.render_path = 'crop'
         self.render_transform = transforms.ToTensor()
         if input_dim != 224:
             self.render_transform = transforms.Compose([transforms.Resize(input_dim), transforms.ToTensor()])
@@ -272,10 +249,6 @@ class Pascal3D(data.Dataset):
         label = label.astype('int')
 
         if self.shape is None:
-            if self.random_canonical:
-                mutation = np.array([-6, 0, 6]) % 72
-                label = np.tile(label, 3)
-                label[::3] = (label[::3] - mutation * 5) % 360
             label = torch.from_numpy(label).long()
             return im, label
 
@@ -294,15 +267,8 @@ class Pascal3D(data.Dataset):
             else:
                 mutation = 0
 
-            # if randomize the canonical view
-            if self.random_canonical:
-                mutation = np.array([-6, 0, 6]) % 72
-                label = np.tile(label, 3)
-                label[::3] = (label[::3] - mutation * 5) % 360
-
             # read multiview rendered images
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour,
-                                      mutation, self.mode, self.random_canonical)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, mutation)
 
             label = torch.from_numpy(label).long()
             return im, renders, label
@@ -329,9 +295,8 @@ class Pascal3D(data.Dataset):
 
 
 class ShapeNet(data.Dataset):
-    def __init__(self, root_dir='/home/xiao/Datasets/MV_renderings/renderings', input_dim=224,
-                 bg_dir='/home/xiao/Datasets/SUN397_256', bg_list='SUN_database.txt', all_angles=True,
-                 model_number=200, annotation_file='annotation_all_texture.txt', mode='RGB', novel=False,
+    def __init__(self, root_dir, annotation_file, bg_dir, bg_list='SUN_database.txt',
+                 input_dim=224, all_angles=True, model_number=200, novel=False,
                  shape=None, render_dir='Renders_semi_sphere', render_number=12, tour=2, random_range=0,
                  cat_choice=None, train=True, mutated=False):
         self.root_dir = root_dir
@@ -341,7 +306,6 @@ class ShapeNet(data.Dataset):
         self.bg_list = pd.read_csv(os.path.join(self.bg_dir, bg_list))
         self.shape = shape
         self.render_dir = render_dir
-        self.mode = mode
         self.render_number = render_number
         self.tour = tour
         self.random_range = random_range
@@ -378,7 +342,7 @@ class ShapeNet(data.Dataset):
         self.im_transform = transforms.Compose([im_transform, transforms.ToTensor(), normalize])
 
         # define data preprocessing for rendered images
-        self.render_path = 'crop' if mode == 'RGB' else 'normal_depth_crop'
+        self.render_path = 'crop'
         self.render_transform = transforms.ToTensor()
         if input_dim != 224:
             self.render_transform = transforms.Compose([transforms.Resize(input_dim), transforms.ToTensor()])
@@ -468,8 +432,7 @@ class ShapeNet(data.Dataset):
                 mutation = 0
 
             # read multiview rendered images
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour,
-                                      mutation, self.mode)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, mutation)
 
             label = torch.from_numpy(label).long()
             return im, renders, label
@@ -498,8 +461,8 @@ class ShapeNet(data.Dataset):
 # ================================================= #
 class Pix3d(data.Dataset):
     def __init__(self,
-                 root_dir='/media/xiao/newhd/XiaoDatasets/pix3d', annotation_file='pix3d_annotation.txt',
-                 input_dim=224, shape=None, mode='RGB', cat_choice=None, all_angles=True, random_model=False,
+                 root_dir, annotation_file, input_dim=224, shape=None, 
+                 cat_choice=None, all_angles=True, random_model=False,
                  render_dir='Renders_semi_sphere', render_number=12, tour=2):
         self.root_dir = root_dir
         self.all_angles = all_angles
@@ -508,8 +471,7 @@ class Pix3d(data.Dataset):
         self.render_number = render_number
         self.tour = tour
         self.random_model = random_model
-        self.mode = mode
-        self.render_path = 'crop' if mode == 'RGB' else 'normal_depth_crop'
+        self.render_path = 'crop'
         self.render_transform = transforms.ToTensor()
         if input_dim != 224:
             self.render_transform = transforms.Compose([transforms.Resize(input_dim), transforms.ToTensor()])
@@ -563,23 +525,21 @@ class Pix3d(data.Dataset):
                 render_example_path = os.path.join(self.root_dir, self.render_dir, cat_id, example_id, model_name, self.render_path)
 
             # read multiview rendered images
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0, self.mode)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0)
 
             return im, renders, label
 
 
 class Linemod(data.Dataset):
     def __init__(self,
-                 root_dir='/home/xiao/Datasets/Linemod', annotation_file='linemod_annotation.txt',
-                 input_dim=224, shape=None, mode='RGB', cat_choice=None,
+                 root_dir, annotation_file, input_dim=224, shape=None, cat_choice=None,
                  render_dir='Renders_semi_sphere', render_number=12, tour=2):
         self.root_dir = root_dir
         self.shape = shape
         self.render_dir = render_dir
         self.render_number = render_number
-        self.mode = mode
         self.tour = tour
-        self.render_path = 'crop' if mode == 'RGB' else 'normal_depth_crop'
+        self.render_path = 'crop'
         self.render_transform = transforms.ToTensor()
         if input_dim != 224:
             self.render_transform = transforms.Compose([transforms.Resize(input_dim), transforms.ToTensor()])
@@ -629,21 +589,19 @@ class Linemod(data.Dataset):
             render_example_path = os.path.join(self.root_dir, self.render_dir, '%02d' % obj_id, self.render_path)
 
             # read multiview rendered images
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0, self.mode)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0)
 
             return im, renders, label
 
 
 if __name__ == "__main__":
-    #test_cats = ['2818832', '2871439', '2933112', '3001627', '4256520', '4379243']
-
     #d = Pix3d(shape='MultiView', cat_choice=None, render_number=12, tour=2)
 
-    #d = ShapeNet(annotation_file='annotation_all_texture.txt', model_number=200, shape='MultiView', cat_choice=test_cats, novel=True)
+    #d = ShapeNet(annotation_file='annotation_all_texture.txt', shape='MultiView', cat_choice=test_cats, novel=True)
 
     #d = Linemod(cat_choice=[1], shape='MultiView')
 
-    d = Pascal3D(root_dir='/home/xiao/Datasets/Pascal3D', annotation_file='Pascal3D.txt', shape='MultiView')
+    d = Pascal3D(root_dir, annotation_file, shape='MultiView')
 
     print('length is %d' % len(d))
 
