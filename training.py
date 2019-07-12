@@ -79,12 +79,13 @@ elif opt.dataset == 'Pascal3D':
                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
 elif opt.dataset == 'ShapeNetCore':
     # train on synthetic data and evaluate on real data
+    bg_dir = os.path.join('data', 'SUN')
     test_root_dir = os.path.join('data', 'Pix3D')
     test_annotation_file = 'Pix3D.txt'
     test_cats = ['2818832', '2871439', '2933112', '3001627', '4256520', '4379243']
     
-    dataset_train = ShapeNet(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
-                             mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
+    dataset_train = ShapeNet(train=True, root_dir=root_dir, annotation_file=annotation_file, bg_dir=bg_dir,
+                             shape=opt.shape, mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
                              render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
     dataset_eval = Pix3d(root_dir=test_root_dir, annotation_file=test_annotation_file,
                          shape=opt.shape, render_number=opt.num_render, tour=opt.tour)

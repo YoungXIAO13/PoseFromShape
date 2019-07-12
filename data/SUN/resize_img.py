@@ -5,7 +5,6 @@ import numpy as np
 
 
 root_dir = 'SUN397'
-output_dir = 'SUN397_256'
 
 cats_sim = [name for name in os.listdir(root_dir)]
 cats_sim.sort()
@@ -18,7 +17,7 @@ for cat_sim in tqdm(cats_sim):
 
     for cat in cats:
         cat_dir = os.path.join(root_dir, cat_sim, cat)
-        cat_out = os.path.join(output_dir, cat_sim, cat)
+        cat_out = os.path.join(cat_sim, cat)
 
         subdirs = [name for name in os.listdir(cat_dir)]
         if os.path.isdir(os.path.join(cat_dir, subdirs[0])):
@@ -46,5 +45,4 @@ for cat_sim in tqdm(cats_sim):
                 else:
                     im_resize = cv2.resize(im, (256, 256))
                 cv2.imwrite(os.path.join(cat_out, img), im_resize)
-
 
