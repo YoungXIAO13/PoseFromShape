@@ -23,7 +23,7 @@ cd PoseFromShape
 conda create --name PoseFromShape --file auxiliary/spec-file.txt
 source activate PoseFromShape
 
-## Install blender as a pytho module
+## Install blender as a python module
 conda install auxiliary/python-blender-2.77-py36_0.tar.bz2
 ```
 
@@ -50,13 +50,13 @@ bash train_Pascal3D.sh
 To train on the ObjectNet3D dataset with real images:
 ```shell
 cd run
-bash trainn_ObjectNet3D.sh
+bash train_ObjectNet3D.sh
 ```
 
 To train on the ShapeNetCore dataset with synthetic images:
 ```shell
 cd run
-bash trainn_ShapeNetCore.sh
+bash train_ShapeNetCore.sh
 ```
 
 ## Testing
