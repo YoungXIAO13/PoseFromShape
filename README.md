@@ -1,6 +1,19 @@
 # PoseFromShape
 (BMVC 2019) PyTorch implementation of Paper "Pose from Shape: Deep Pose Estimation for Arbitrary 3D Objects"
+[[PDF]](http://imagine.enpc.fr/~xiaoy/PoseFromShape/poseFromShape2019BMVC.pdf) [[Project webpage]](http://imagine.enpc.fr/~xiaoy/PoseFromShape/)
 
+<p align="center">
+<img src="https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/teaser_test.png" width="400px" alt="teaser">
+</p>
+
+If our project is helpful for your research, please consider citing:
+```Bash
+@INPROCEEDINGS{Xiao2019PoseFromShape,
+    author    = {Yang Xiao and Xuchong Qiu and Pierre{-}Alain Langlois and Mathieu Aubry and Renaud Marlet},
+    title     = {Pose from Shape: Deep Pose Estimation for Arbitrary 3D Objects},
+    booktitle = {BMVC},
+    year      = {2019}}
+```
 
 ## Table of Content
 * [Installation](#installation)
