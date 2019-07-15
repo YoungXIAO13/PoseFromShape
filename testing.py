@@ -28,6 +28,7 @@ parser.add_argument('--azi_classes', type=int, default=24, help='number of class
 parser.add_argument('--ele_classes', type=int, default=12, help='number of class for elevation')
 parser.add_argument('--inp_classes', type=int, default=24, help='number of class for inplane rotation')
 
+parser.add_argument('--output_dir', type=str, default=None, help='where to save the testig results')
 parser.add_argument('--dataset', type=str, default=None, help='testing dataset')
 parser.add_argument('--novel', action='store_true', help='whether to test on novel cats')
 parser.add_argument('--keypoint', action='store_true', help='whether to use only training samples with anchors')
@@ -42,7 +43,7 @@ print(opt)
 
 # ================CREATE NETWORK============================ #
 if opt.shape is None:
-    model = BaselineEstimator(img_feature_dim=opt.img_feature_dim
+    model = BaselineEstimator(img_feature_dim=opt.img_feature_dim,
                               azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes)
 else:
     model = PoseEstimator(shape=opt.shape, shape_feature_dim=opt.shape_feature_dim, img_feature_dim=opt.img_feature_dim,
@@ -59,11 +60,10 @@ bin_size = 360. / opt.azi_classes
 
 # =============DEFINE stuff for logs ======================= #
 # write basic information into the log file
-result_path = os.path.split(opt.model)[0]
-predictions_path = os.path.join(result_path, 'predictions')
+predictions_path = os.getcwd() if opt.output_dir is None else opt.output_dir
 if not os.path.isdir(predictions_path):
     os.mkdir(predictions_path)
-logname = os.path.join(result_path, 'testing_log.txt')
+logname = os.path.join(predictions_path, 'testing_log.txt')
 f = open(logname, mode='w')
 f.write('\n')
 f.close()
@@ -116,7 +116,7 @@ elif opt.dataset == 'Pix3D':
             annotation_file = '{}_annotation.txt'.format(cat)
             
         dataset_test = Pix3d(root_dir=root_dir, annotation_file=annotation_file,
-                             cat_choice=[cat], shape=opt.shape, annotation_file=annotation_file,
+                             cat_choice=[cat], shape=opt.shape,
                              render_number=opt.num_render, tour=opt.tour, random_model=opt.random_model)
         Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
                                              predictions_path, logname)
