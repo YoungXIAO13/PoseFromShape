@@ -10,8 +10,8 @@ If our project is helpful for your research, please consider citing:
 ```Bash
 @INPROCEEDINGS{Xiao2019PoseFromShape,
     author    = {Yang Xiao and Xuchong Qiu and Pierre{-}Alain Langlois and Mathieu Aubry and Renaud Marlet},
-    title     = {Pose from Shape: Deep Pose Estimation for Arbitrary 3D Objects},
-    booktitle = {BMVC},
+    title     = {Pose from Shape: Deep Pose Estimation for Arbitrary {3D} Objects},
+    booktitle = {British Machine Vision Conference (BMVC)},
     year      = {2019}}
 ```
 
