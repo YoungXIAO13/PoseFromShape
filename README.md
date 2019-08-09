@@ -1,6 +1,6 @@
 # PoseFromShape
 (BMVC 2019) PyTorch implementation of Paper "Pose from Shape: Deep Pose Estimation for Arbitrary 3D Objects"
-[[PDF]](http://imagine.enpc.fr/~xiaoy/PoseFromShape/poseFromShape2019BMVC.pdf) [[Project webpage]](http://imagine.enpc.fr/~xiaoy/PoseFromShape/)
+[[PDF]](https://arxiv.org/abs/1906.05105) [[Project webpage]](http://imagine.enpc.fr/~xiaoy/PoseFromShape/)
 
 <p align="center">
 <img src="https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/teaser_test.png" width="400px" alt="teaser">
