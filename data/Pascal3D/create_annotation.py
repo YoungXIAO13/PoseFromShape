@@ -9,7 +9,6 @@ import cv2
 cats = ['aeroplane', 'bicycle', 'boat', 'bottle', 'bus', 'car', 'chair', 'diningtable', 'motorbike', 'sofa', 'train', 'tvmonitor']
 databases = ['imagenet', 'pascal']
 subsets = ['train', 'val']
-#databases = ['pascal']
 
 annotation_file = 'Pascal3D.txt'
 if not os.path.exists(annotation_file):
@@ -18,8 +17,6 @@ if not os.path.exists(annotation_file):
 
 for subset in subsets:
     for database in databases:
-        image_sets_dir = 'Image_sets_' + database
-        
         if subset == 'val' and database == 'imagenet':
             continue
         
@@ -29,9 +26,9 @@ for subset in subsets:
 
             # read the validation image list
             if database == 'imagenet':
-                val_list_file = os.path.join(image_sets_dir, cat + '_' + 'imagenet_val.txt')
+                val_list_file = os.path.join('Image_sets', '{}_imagenet_val.txt'.format(cat))
             else:
-                val_list_file = os.path.join(image_sets_dir, cat + '_' + 'val.txt')
+                val_list_file = os.path.join('PASCAL', 'VOCdevkit', 'VOC2012', 'ImageSets', 'Main', '{}_val.txt'.format(cat))
             with open(val_list_file, 'r') as f:
                 val_list = [line.rstrip('\n') for line in f]
 
