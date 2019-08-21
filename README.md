@@ -19,6 +19,7 @@ If our project is helpful for your research, please consider citing:
 * [Installation](#installation)
 * [Training](#training)
 * [Testing](#testing)
+* [Demo](#demo)
 
 ## Installation
 
@@ -120,3 +121,24 @@ You should obtain the results in Table 3 in the paper (*Accuracy* / *MedErr*):
 | :------: |:------: | :------: | :------: |
 | [Georgakis](https://arxiv.org/pdf/1811.07249.pdf) | 50.8 / 28.6 | 31.2 / 57.3 | 34.9 / 51.6 |
 | Ours(MV) | **59.8 / 20.0** | **52.4 / 26.6** | **56.6 / 26.6** |
+
+
+## Demo
+In order to test on other 3D model, first you need to generate multiviews from .obj file
+by running  ```python ./data/render_utils.py``` with the correct path 
+and you should save the testing images picturing this model in a folder.
+
+Then you can run ```bash ./demo/inference.sh``` to get predictions and images rendered
+under the predicted pose with the right model_path, image_path, render_path, obj_path.
+
+Some example of applying our model trained on objects of ObjectNet3D with keypoint annotations
+to armadillo images can be seen below:
+
+
+|![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_1.jpg) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_3.png)| ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_9.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_10.jpg) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_11.png) |
+|:---:|:---:|:---:|:---:|:---:|
+| Input Image 1 | Input Image 2 | Input Image 3 | Input Image 4 | Input Image 5 |
+
+|![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_1_rendering.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_3_rendering.png)| ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_9_rendering.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_10_rendering.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_11_rendering.png) |
+|:---:|:---:|:---:|:---:|:---:|
+| Prediction 1 | Prediction 2 | Prediction 3 | Prediction 4 | Prediction 5 |

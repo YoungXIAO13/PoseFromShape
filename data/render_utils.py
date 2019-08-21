@@ -289,10 +289,72 @@ def render_obj_with_view(obj, output_dir, csv_file, texture_img, views=20, shape
             f.write(image_path + ',' + cat_id + ',' + example_id + ',' + str(int(azis[n])) + ',' + str(int(eles[n])) + '\n')
 
 
+def render_obj(obj, output_dir, azi, ele, rol, name, shape=[512, 512], forward=None, up=None):
+    clean_obj_lamp_and_mesh(bpy.context)
+
+    # Setting up the environment
+    scene = bpy.context.scene
+    scene.render.resolution_x = shape[1]
+    scene.render.resolution_y = shape[0]
+    scene.render.resolution_percentage = 100
+    scene.render.alpha_mode = 'TRANSPARENT'
+
+    # Camera setting
+    cam = scene.objects['Camera']
+    cam_constraint = cam.constraints.new(type='TRACK_TO')
+    cam_constraint.track_axis = 'TRACK_NEGATIVE_Z'
+    cam_constraint.up_axis = 'UP_Y'
+    b_empty = parent_obj_to_camera(cam)
+    cam_constraint.target = b_empty
+
+    # Light setting
+    lamp_object = makeLamp('Lamp1', 5)
+    lamp_add = makeLamp('Lamp2', 1)
+
+    if forward is not None and up is not None:
+        bpy.ops.import_scene.obj(filepath=obj, axis_forward=forward, axis_up=up)
+    else:
+        bpy.ops.import_scene.obj(filepath=obj)
+
+    # normalize it and set the center
+    for object in bpy.context.scene.objects:
+        if object.name in ['Camera', 'Lamp'] or object.type == 'EMPTY':
+            continue
+        bpy.context.scene.objects.active = object
+        max_dim = max(object.dimensions)
+        object.dimensions = object.dimensions / max_dim if max_dim != 0 else object.dimensions
+
+    # Output setting
+    scene.render.image_settings.file_format = 'PNG'
+    scene.render.filepath = os.path.join(output_dir, name + '_rendering_%03d_%03d_%03d' % (int(azi), int(ele), int(rol)))
+
+    # transform Euler angles from degrees into radians
+    azi = radians(azi)
+    ele = radians(ele)
+    rol = radians(rol)
+    r = 2.5
+    loc_y = r * math.cos(ele) * math.cos(azi)
+    loc_x = r * math.cos(ele) * math.sin(azi)
+    loc_z = r * math.sin(ele)
+    cam.location = (loc_x, loc_y, loc_z + 0.5)
+    lamp_object.location = (loc_x, loc_y, 10)
+    lamp_add.location = (loc_x, loc_y, -10)
+
+    # Change the in-plane rotation
+    cam_ob = bpy.context.scene.camera
+    bpy.context.scene.objects.active = cam_ob  # select the camera object
+    distance = np.sqrt(loc_x ** 2 + loc_y ** 2 + loc_z ** 2)
+    bpy.ops.transform.rotate(value=rol, axis=(loc_x / distance, loc_y / distance, loc_z / distance),
+                             constraint_axis=(False, False, False), constraint_orientation='GLOBAL', mirror=False,
+                             proportional='DISABLED', proportional_edit_falloff='SMOOTH',
+                             proportional_size=1)
+
+    bpy.ops.render.render(write_still=True)
+
+
 if __name__ == '__main__':
-    obj = 'CAD/obj/aeroplane/01.obj'
-    render_dir = 'Renders_semi_sphere'
-    shape = [512, 512]
-    render_obj_grid(obj, render_dir, shape, 45)
+    obj = '/home/xiao/Projects/PoseFromShape/demo/armadillo.obj'
+    render_dir = '/home/xiao/Projects/PoseFromShape/demo/armadillo_multiviews'
+    render_obj_grid(obj, render_dir, [512, 512], 30, 5, 1, 2, True, None, None)
     
 
