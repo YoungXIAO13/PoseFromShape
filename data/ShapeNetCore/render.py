@@ -23,7 +23,7 @@ def render_example(example_id, render_dir, input_dir, output_dir, texture_dir, c
         return False
 
     if os.path.isdir(example_out_dir):
-        if len(os.listdir(example_out_dir)) > 0:
+        if len(os.listdir(example_out_dir)) == views:
             return False
         else:
             shutil.rmtree(example_out_dir)
@@ -55,8 +55,8 @@ def render_example(example_id, render_dir, input_dir, output_dir, texture_dir, c
     texture_img = os.path.join(texture_dir, texture)
     
     # generate the synthetic training images and its multi-view reference images
+    render_obj_grid(obj, example_render_dir, [512, 512], 30, 5, 1, 2, False, None, None)
     render_obj_with_view(obj, example_out_dir, csv_file, texture_img, views, shape)
-    render_obj_grid(obj, example_render_dir, [512, 512], 30, 5, 1, 1.5, False, None, None)
 
     # disable output redirection
     os.close(1)
@@ -97,4 +97,3 @@ for cat in tqdm(cats):
     render_cat(model_dir, render_dir, output_dir, texture_dir, csv_file, cat_id, [512, 512], 20)
     
 os.system("rm render.log")
-    

@@ -85,7 +85,7 @@ def clean_obj_lamp_and_mesh(context):
         meshes.remove(mesh)
 
 
-def render_obj_grid(obj, output_dir, shape=[256, 256], step=30, light_main=5, light_add=1, r=1.5, normalize=False, forward=None, up=None):
+def render_obj_grid(obj, output_dir, shape=[256, 256], step=30, light_main=5, light_add=1, r=2, normalize=False, forward=None, up=None):
     clean_obj_lamp_and_mesh(bpy.context)
     # Set up rendering of depth map:
     bpy.context.scene.use_nodes = True
@@ -233,13 +233,14 @@ def render_obj_with_view(obj, output_dir, csv_file, texture_img, views=20, shape
         if object.name in ['Camera', 'Lamp'] or object.type in ['EMPTY', 'LAMP']:
             continue
         mat = bpy.data.materials.new(name='Material')
-        mat.diffuse_color = (0, .5, .4)
+        mat.diffuse_color = tuple(np.random.rand(3))
         tex = bpy.data.textures.new('UVMapping', 'IMAGE')
         tex.image = bpy.data.images.load(texture_img)
         slot = mat.texture_slots.add()
         slot.texture = tex
         if object.data.materials:
-            object.data.materials[0] = mat
+            for i in range(len(object.data.materials)):
+                object.data.materials[i] = mat
         else:
             object.data.materials.append(mat)
 
@@ -357,4 +358,3 @@ if __name__ == '__main__':
     render_dir = '/home/xiao/Projects/PoseFromShape/demo/armadillo_multiviews'
     render_obj_grid(obj, render_dir, [512, 512], 30, 5, 1, 2, True, None, None)
     
-
