@@ -135,7 +135,7 @@ Some example of applying our model trained on objects of ObjectNet3D with keypoi
 to armadillo images can be seen below:
 
 
-|![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_1.jpg) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_3.png)| ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_9.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_10.jpg) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_11.png) |
+|![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_1.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_3.png)| ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_9.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_10.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_11.png) |
 |:---:|:---:|:---:|:---:|:---:|
 | Input Image 1 | Input Image 2 | Input Image 3 | Input Image 4 | Input Image 5 |
 
