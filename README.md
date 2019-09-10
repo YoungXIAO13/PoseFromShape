@@ -20,6 +20,8 @@ If our project is helpful for your research, please consider citing:
 * [Training](#training)
 * [Testing](#testing)
 * [Demo](#demo)
+* [Further reading](#further-reading)
+
 
 ## Installation
 
@@ -142,3 +144,13 @@ to armadillo images can be seen below:
 |![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_1_rendering.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_3_rendering.png)| ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_9_rendering.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_10_rendering.png) | ![](https://github.com/YoungXIAO13/PoseFromShape/blob/master/img/armadillo_11_rendering.png) |
 |:---:|:---:|:---:|:---:|:---:|
 | Prediction 1 | Prediction 2 | Prediction 3 | Prediction 4 | Prediction 5 |
+
+
+## Further Reading
+
+* A summary of datasets in object pose estimation can be found [here](https://github.com/YoungXIAO13/ObjectPoseEstimationSummary)
+* A list of papers and challenges in object pose estimation can be found [here](https://github.com/YoungXIAO13/ObjectPoseEstimationSummary/blob/master/paper.md) 
+
+
+## License
+[MIT](https://github.com/YoungXIAO13/PoseFromShape/blob/master/LICENSE)
