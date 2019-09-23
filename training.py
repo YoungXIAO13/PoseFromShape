@@ -12,9 +12,10 @@ matplotlib.use('agg')  # use matplotlib without GUI support
 
 sys.path.append('./auxiliary/')
 from auxiliary.model import PoseEstimator, BaselineEstimator
-from auxiliary.dataset import *
-from auxiliary.utils import *
-from auxiliary.loss import *
+from auxiliary.dataset import Pascal3D, ShapeNet, Pix3D
+from auxiliary.utils import KaiMingInit, save_checkpoint, load_checkpoint, AverageValueMeter, \
+    get_pred_from_cls_output, plot_loss_fig, plot_acc_fig, rotation_acc
+from auxiliary.loss import CELoss, DeltaLoss
 from evaluation import val
 
 # =================PARAMETERS=============================== #

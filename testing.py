@@ -12,7 +12,7 @@ matplotlib.use('agg')  # use matplotlib without GUI support
 sys.path.append('./auxiliary/')
 from auxiliary.model import PoseEstimator, BaselineEstimator
 from auxiliary.dataset import Pix3d, Pascal3D, Linemod
-from auxiliary.utils import *
+from auxiliary.utils import load_checkpoint
 from evaluation import test_category
 
 # =================PARAMETERS=============================== #

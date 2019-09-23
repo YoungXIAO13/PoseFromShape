@@ -3,9 +3,7 @@ import torch
 import sys
 from torch.utils.data import DataLoader
 
-#sys.path.append('./auxiliary/')
-from auxiliary.utils import *
-from auxiliary.loss import *
+from auxiliary.utils import AverageValueMeter, get_pred_from_cls_output, rotation_acc, rotation_err
 
 
 def val(data_loader, model, bin_size, shape, criterion_azi=None, criterion_ele=None, criterion_inp=None, criterion_reg=None):
