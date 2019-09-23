@@ -38,6 +38,7 @@ cd PoseFromShape
 ## Create python env with relevant packages
 conda create --name PoseFromShape --file auxiliary/spec-file.txt
 source activate PoseFromShape
+conda install -c conda-forge matplotlib
 
 ## Install blender as a python module
 conda install auxiliary/python-blender-2.77-py36_0.tar.bz2
@@ -85,12 +86,12 @@ bash test_ObjectNet3D.sh
 ```
 You should obtain the results in Table 1 in the paper (*indicates testing on the **novel categories**):
 
-| Method | bed | bookcase | calculator | cellphone | computer | door | cabinet | guitar | iron | knife | microwave | pen | pot | rifle | shoe | slipper | stove | toilet | tub | wheelchair | Average |
+| Method | **Average** | bed | bookcase | calculator | cellphone | computer | door | cabinet | guitar | iron | knife | microwave | pen | pot | rifle | shoe | slipper | stove | toilet | tub | wheelchair |
 | :------: |:------: | :------: | :------: | :------: | :------: |:------: | :------: |:------: | :------: |:------: | :------: |:------: | :------: |:------: | :------: |:------: | :------: |:------: | :------: |:------: | :------: |
-| [StarMap](https://arxiv.org/pdf/1803.09331.pdf) | 73 | 78 | 91 | 57 | 82 | - | 84 | 73 | 3 | 18 | 94 | 13 | 56 | 4 | - | 12 | 87 | 71 | 51 | 60 | 56 |
-| [StarMap](https://arxiv.org/pdf/1803.09331.pdf)* | 37 | 69 | 19 | 52 | 73 | - | 78 | 61 | 2 | 9 | 88 | 12 | 51 | 0 | - | 11 | 82 | 41 | 49 | 14 | 42 |
-| Ours(MV) | **82** | **90** | **95** | **65** | **93** | **97** | **89** | **75** | **52** | **32** | **95** | **54** | **82** | **45** | **67** | **46** | **95** | **82** | 67 | **66** | **73** |
-| Ours(MV)* | 65 | **90** | 88 | **65** | 84 | 93 | 84 | 67 | 2 | 29 | 94 | 47 | 79 | 15 | 54 | 32 | 89 | 61 | **68** | 39 | 62 |
+| [StarMap](https://arxiv.org/pdf/1803.09331.pdf) | 56 | 73 | 78 | 91 | 57 | 82 | - | 84 | 73 | 3 | 18 | 94 | 13 | 56 | 4 | - | 12 | 87 | 71 | 51 | 60 |
+| [StarMap](https://arxiv.org/pdf/1803.09331.pdf)* | 42 | 37 | 69 | 19 | 52 | 73 | - | 78 | 61 | 2 | 9 | 88 | 12 | 51 | 0 | - | 11 | 82 | 41 | 49 | 14 |
+| Ours(MV) | **73** | **82** | **90** | **95** | **65** | **93** | **97** | **89** | **75** | **52** | **32** | **95** | **54** | **82** | **45** | **67** | **46** | **95** | **82** | 67 | **66** |
+| Ours(MV)* | 62 | 65 | **90** | 88 | **65** | 84 | 93 | 84 | 67 | 2 | 29 | 94 | 47 | 79 | 15 | 54 | 32 | 89 | 61 | **68** | 39 |
 
 
 
