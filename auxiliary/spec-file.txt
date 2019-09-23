@@ -72,7 +72,6 @@ https://repo.anaconda.com/pkgs/main/linux-64/psutil-5.4.8-py36h7b6447c_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/pycparser-2.19-py36_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/pyparsing-2.3.0-py36_0.tar.bz2
 https://conda.anaconda.org/conda-forge/linux-64/pysocks-1.6.8-py36_1002.tar.bz2
-file:///home/xiao/python-blender-2.77-py36_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/pytz-2018.7-py36_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/pyyaml-3.13-py36h14c3975_0.tar.bz2
 https://conda.anaconda.org/conda-forge/linux-64/pyzmq-17.1.2-py36hae99301_1.tar.bz2
@@ -106,8 +105,6 @@ https://repo.anaconda.com/pkgs/main/linux-64/pip-18.1-py36_0.tar.bz2
 https://conda.anaconda.org/conda-forge/linux-64/pyopenssl-18.0.0-py36_1000.tar.bz2
 https://conda.anaconda.org/conda-forge/linux-64/urllib3-1.24.1-py36_1000.tar.bz2
 https://conda.anaconda.org/conda-forge/linux-64/requests-2.21.0-py36_1000.tar.bz2
-https://conda.anaconda.org/conda-forge/linux-64/matplotlib-3.0.2-py36h8a2030e_1.tar.bz2
-https://conda.anaconda.org/conda-forge/linux-64/matplotlib-base-3.0.2-py36h20b835b_1.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/mkl_fft-1.0.6-py36h7dd41cf_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/mkl_random-1.0.2-py36hd81dba3_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/numpy-1.16.2-py36h7e9f1db_0.tar.bz2
