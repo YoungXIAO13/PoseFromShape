@@ -132,7 +132,7 @@ by running  ```python ./data/render_utils.py``` with the correct path
 and you should save the testing images picturing this model in a folder.
 
 Then you can run ```bash ./demo/inference.sh``` to get predictions and images rendered
-under the predicted pose with the right model_path, image_path, render_path, obj_path.
+under the predicted pose with the right **model_path**, **image_path**, **render_path**, **obj_path**.
 
 Some example of applying our model trained on objects of ObjectNet3D with keypoint annotations
 to armadillo images can be seen below:
