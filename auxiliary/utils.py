@@ -127,6 +127,23 @@ def plot_acc_fig(epoch, accs):
     return fig_acc
 
 
+def angles_to_matrix(angles):
+    """Compute the rotation matrix from euler angles for a mini-batch"""
+    azi = angles[:, 0]
+    ele = angles[:, 1]
+    rol = angles[:, 2]
+    element1 = (torch.cos(rol) * torch.cos(azi) - torch.sin(rol) * torch.cos(ele) * torch.sin(azi)).unsqueeze(1)
+    element2 = (torch.sin(rol) * torch.cos(azi) + torch.cos(rol) * torch.cos(ele) * torch.sin(azi)).unsqueeze(1)
+    element3 = (torch.sin(ele) * torch.sin(azi)).unsqueeze(1)
+    element4 = (-torch.cos(rol) * torch.sin(azi) - torch.sin(rol) * torch.cos(ele) * torch.cos(azi)).unsqueeze(1)
+    element5 = (-torch.sin(rol) * torch.sin(azi) + torch.cos(rol) * torch.cos(ele) * torch.cos(azi)).unsqueeze(1)
+    element6 = (torch.sin(ele) * torch.cos(azi)).unsqueeze(1)
+    element7 = (torch.sin(rol) * torch.sin(ele)).unsqueeze(1)
+    element8 = (-torch.cos(rol) * torch.sin(ele)).unsqueeze(1)
+    element9 = (torch.cos(ele)).unsqueeze(1)
+    return torch.cat((element1, element2, element3, element4, element5, element6, element7, element8, element9), dim=1)
+
+
 def rotation_err(preds, targets):
     """compute rotation error for viewpoint estimation"""
     preds = preds.float().clone()
