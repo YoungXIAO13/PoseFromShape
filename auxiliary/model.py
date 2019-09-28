@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.nn.parallel
 import torch.utils.data
 from torch.autograd import Variable
@@ -71,14 +72,13 @@ class ShapeEncoderMV(nn.Module):
         Arguments:
         feature_dim: output feature dimension for each rendering image
         channels: 3 for normal rendering image, 4 for normal map with depth map, and 3*12 channels for concatenating
-        pretrained_resnet: use the ResNet pretrained on ImageNet if True
 
         Return:
         A tensor of size NxC, where N is the batch size and C is the feature_dim
     """
-    def __init__(self, feature_dim=256, channels=3, pretrained_resnet=False):
+    def __init__(self, feature_dim=256, channels=3):
         super(ShapeEncoderMV, self).__init__()
-        self.render_encoder = resnet.resnet18(input_channel=channels, num_classes=feature_dim, pretrained=pretrained_resnet)
+        self.render_encoder = resnet.resnet18(input_channel=channels, num_classes=feature_dim)
 
     def forward(self, renders):
         # reshape render images from dimension N*K*C*H*W to (N*K)*C*H*W
@@ -92,15 +92,32 @@ class ShapeEncoderMV(nn.Module):
 
 
 class ShapeEncoderPC(nn.Module):
-    """Shape Encoder using point cloud TO BE MODIFIED
+    """Shape Encoder using point cloud
+        Arguments:
+            feature_dim: output feature dimension for the point cloud
+        Return:
+            A tensor of size NxC, where N is the batch size and C is the feature_dim
     """
-    def __init__(self, feature_dim=256, channels=3, pretrained_resnet=False):
+
+    def __init__(self, feature_dim=1024):
         super(ShapeEncoderPC, self).__init__()
-        self.pc_encoder = resnet.resnet18(input_channel=channels, num_classes=feature_dim, pretrained=pretrained_resnet)
+        self.conv1 = torch.nn.Conv1d(3, 64, 1)
+        self.conv2 = torch.nn.Conv1d(64, 128, 1)
+        self.conv3 = torch.nn.Conv1d(128, feature_dim, 1)
+
+        self.bn1 = torch.nn.BatchNorm1d(64)
+        self.bn2 = torch.nn.BatchNorm1d(128)
+        self.bn3 = torch.nn.BatchNorm1d(feature_dim)
+
+        self.feature_dim = feature_dim
 
     def forward(self, shapes):
-        shape_feature = self.pc_encoder(shapes)
-        return shape_feature
+        x = F.relu(self.bn1(self.conv1(shapes)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.bn3(self.conv3(x))
+        x, _ = torch.max(x, 2)
+        x = x.view(-1, self.feature_dim)
+        return x
 
 
 class PoseEstimator(nn.Module):
@@ -117,14 +134,14 @@ class PoseEstimator(nn.Module):
         Three angle bin classification probability with a delta value regression for each bin
     """
     def __init__(self, render_number=12, img_feature_dim=1024, shape_feature_dim=256, channels=3, separate_branch=False,
-                 azi_classes=24, ele_classes=12, inp_classes=24, pretrained_resnet=False, shape='PointCloud'):
+                 azi_classes=24, ele_classes=12, inp_classes=24, pretrained_resnet=False, shape='MultiView'):
         super(PoseEstimator, self).__init__()
 
         # 3D shape encoder
         if shape == 'PointCloud':
-            self.shape_encoder = ShapeEncoderPC()
+            self.shape_encoder = ShapeEncoderPC(feature_dim=shape_feature_dim)
         else:
-            self.shape_encoder = ShapeEncoderMV(feature_dim=shape_feature_dim, channels=channels, pretrained_resnet=pretrained_resnet)
+            self.shape_encoder = ShapeEncoderMV(feature_dim=shape_feature_dim, channels=channels)
         shape_feature_dim = shape_feature_dim * render_number if shape != 'PointCloud' else shape_feature_dim
 
         # RGB image encoder

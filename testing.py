@@ -11,7 +11,7 @@ matplotlib.use('agg')  # use matplotlib without GUI support
 
 sys.path.append('./auxiliary/')
 from auxiliary.model import PoseEstimator, BaselineEstimator
-from auxiliary.dataset import Pix3d, Pascal3D, Linemod
+from auxiliary.dataset import Pix3D, Pascal3D, Linemod
 from auxiliary.utils import load_checkpoint
 from evaluation import test_category
 
@@ -115,7 +115,7 @@ elif opt.dataset == 'Pix3D':
         if cat in ['bed', 'chair', 'desk']:
             annotation_file = '{}_annotation.txt'.format(cat)
             
-        dataset_test = Pix3d(root_dir=root_dir, annotation_file=annotation_file,
+        dataset_test = Pix3D(root_dir=root_dir, annotation_file=annotation_file,
                              cat_choice=[cat], shape=opt.shape,
                              render_number=opt.num_render, tour=opt.tour, random_model=opt.random_model)
         Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,

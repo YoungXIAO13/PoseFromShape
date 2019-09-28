@@ -8,6 +8,8 @@ import numpy as np
 from PIL import Image, ImageFilter
 import pandas as pd
 import cv2
+import math
+import pymesh
 
 
 # Lighting noise transform
@@ -104,12 +106,35 @@ def read_multiviwes(render_transform, render_example_path, render_number, tour, 
         render_ids = np.concatenate((np.concatenate((renders_low[mutation:], renders_low[:mutation]))[::step],
                                      np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step],
                                      np.concatenate((renders_up[mutation:], renders_up[:mutation]))[::step]))
+    renders = []
     for i in range(0, len(render_ids)):
         render = Image.open(os.path.join(render_example_path, render_names[render_ids[i]]))
         render = render.convert('RGB')
         render = render_transform(render)
-        renders = render.unsqueeze(0) if i == 0 else torch.cat((renders, render.unsqueeze(0)), 0)
-    return renders
+        renders.append(render.unsqueeze(0))
+    return torch.cat(renders, 0)
+
+
+def read_pointcloud(model_path, point_num, rotation=0):
+    # read in original point cloud
+    point_cloud_raw = pymesh.load_mesh(model_path).vertices
+
+    # randomly select a fix number of points on the surface
+    point_subset = np.random.choice(point_cloud_raw.shape[0], point_num, replace=False)
+    point_cloud = point_cloud_raw[point_subset]
+    max_size = np.max(np.abs(point_cloud))
+
+    # apply the random rotation on the point cloud
+    if rotation != 0:
+        alpha = math.radians(rotation)
+        rot_matrix = np.array([[np.cos(alpha), -np.sin(alpha), 0.],
+                               [np.sin(alpha), np.cos(alpha), 0.],
+                               [0., 0., 1.]])
+        point_cloud = np.matmul(point_cloud, rot_matrix.transpose())
+
+    point_cloud = torch.from_numpy(point_cloud.transpose()).float()
+    point_cloud = point_cloud / max_size
+    return point_cloud
 
 
 # ================================================= #
@@ -117,16 +142,17 @@ def read_multiviwes(render_transform, render_example_path, render_number, tour, 
 # ================================================= #
 class Pascal3D(data.Dataset):
     def __init__(self,
-                 root_dir, annotation_file, input_dim=224, shape=None, render_dir='Renders_semi_sphere',
-                 mutated=False, novel=True, keypoint=False, train=True, cat_choice=None, render_number=12,
-                 tour=2, random_range=0, random_model=False):
+                 root_dir, annotation_file, input_dim=224, shape='MultiView', shape_dir='Renders_semi_sphere',
+                 mutated=False, novel=True, keypoint=False, train=True, cat_choice=None, random_model=False,
+                 render_number=12, tour=2, random_range=0, point_num=2500):
 
         self.root_dir = root_dir
         self.input_dim = input_dim
         self.shape = shape
-        self.render_dir = render_dir
+        self.shape_dir = shape_dir
         self.tour = tour
         self.render_number = render_number
+        self.point_num = point_num
         self.train = train
         self.mutated = mutated
         self.random_range = random_range
@@ -174,39 +200,25 @@ class Pascal3D(data.Dataset):
         if input_dim != 224:
             self.render_transform = transforms.Compose([transforms.Resize(input_dim), transforms.ToTensor()])
 
-        if shape == 'PointCloud':
-            # Load the point clouds
-            import pymesh
-            self.point_clouds = {}
-            point_cloud_path = join(self.root_dir, "CAD/sampledPCinfRay/")
-            for filename in glob.iglob(join(point_cloud_path, '**/*.ply'), recursive=True):
-                category = basename(os.path.dirname(filename))
-                idx = int(basename(filename).split(sep=".")[0])
-                vertices = pymesh.load_mesh(filename).vertices
-                if category in self.point_clouds:
-                    self.point_clouds[category][idx] = vertices
-                else:
-                    self.point_clouds[category] = {idx: vertices}
-
     def __len__(self):
         return len(self.annotation_frame)
 
     def __getitem__(self, idx):
-        img_name = os.path.join(self.root_dir, self.annotation_frame.iloc[idx, -1])
-        cat = self.annotation_frame.iloc[idx, 2]
-        cad_index = self.annotation_frame.iloc[idx, 5]
+        img_name = os.path.join(self.root_dir, self.annotation_frame.iloc[idx]['im_path'])
+        cat = self.annotation_frame.iloc[idx]['cat']
+        cad_index = self.annotation_frame.iloc[idx]['cad_index']
 
         # select a random shape from the same category in testing
         if self.random_model:
             df_cat = self.annotation_frame[self.annotation_frame.cat == cat]
             df_cat = df_cat[df_cat.cad_index != cad_index]
             random_idx = np.random.randint(len(df_cat))
-            cad_index = self.annotation_frame.iloc[random_idx, 5]
+            cad_index = self.annotation_frame.iloc[random_idx]['cad_index']
 
-        left = self.annotation_frame.iloc[idx, 12]
-        upper = self.annotation_frame.iloc[idx, 13]
-        right = self.annotation_frame.iloc[idx, 14]
-        lower = self.annotation_frame.iloc[idx, 15]
+        left = self.annotation_frame.iloc[idx]['left']
+        upper = self.annotation_frame.iloc[idx]['upper']
+        right = self.annotation_frame.iloc[idx]['right']
+        lower = self.annotation_frame.iloc[idx]['lower']
 
         # use continue viewpoint annotation
         label = self.annotation_frame.iloc[idx, 9:12].values
@@ -252,61 +264,44 @@ class Pascal3D(data.Dataset):
             label = torch.from_numpy(label).long()
             return im, label
 
-        elif self.shape == 'MultiView':
+        # randomize the canonical frame in azimuth
+        # range_0: [-45, 45]; range_1: [-90, 90]; range_2: [-180, 180]
+        if self.mutated and cat not in self.bad_cats:
+            mutation = np.random.randint(-8, 9) % 72 if self.random_range == 0 else \
+                (np.random.randint(-17, 18) % 72 if self.random_range == 1 else np.random.randint(0, 72))
+            label[0] = (label[0] - mutation * 5) % 360
+        else:
+            mutation = 0
 
+        if self.shape == 'MultiView':
             # load render images in a Tensor of size K*C*H*W
-            render_example_path = os.path.join(self.root_dir, self.render_dir, cat, '%02d' % cad_index, self.render_path)
-
-            # mutate the render orders
-            # we render each 5 degree in azimuth and 30 degree in elevation
-            # range_0: [-45, 45]; range_1: [-90, 90]; range_2: [-180, 180]
-            if self.mutated and cat not in self.bad_cats:
-                mutation = np.random.randint(-8, 9) % 72 if self.random_range == 0 else \
-                    (np.random.randint(-17, 18) % 72 if self.random_range == 1 else np.random.randint(0, 72))
-                label[0] = (label[0] - mutation * 5) % 360
-            else:
-                mutation = 0
-
-            # read multiview rendered images
+            render_example_path = os.path.join(self.root_dir, self.shape_dir, cat, '%02d' % cad_index, self.render_path)
             renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, mutation)
 
             label = torch.from_numpy(label).long()
             return im, renders, label
 
-        else:
-
-            # load point_clouds
-            point_subset = np.random.choice(self.point_clouds[cat][cad_index].shape[0],
-                                            self.pt_cloud_size, replace=False)
-            point_cloud = torch.from_numpy(self.point_clouds[cat][cad_index][point_subset]).float()
-
-            # Apply rotation
-            if self.mutated and cat not in self.bad_cats:
-                old_label = label[0]
-                alpha = np.random.uniform(-np.pi / 4, np.pi / 4)
-                rot_matrix = np.array([[np.cos(alpha), -np.sin(alpha), 0.],
-                                       [np.sin(alpha), np.cos(alpha), 0.],
-                                       [0., 0., 1.]])
-                point_cloud = np.matmul(point_cloud, rot_matrix.transpose())
-                label[0] = (old_label - alpha * 180. / np.pi) % 360
-                label = torch.from_numpy(label).long()
+        if self.shape == 'PointCloud':
+            example_path = os.path.join(self.root_dir, self.shape_dir, cat, '%02d' % cad_index, 'compressed.ply')
+            point_cloud = read_pointcloud(example_path, self.point_num, mutation)
 
             return im, point_cloud, label
 
 
 class ShapeNet(data.Dataset):
     def __init__(self, root_dir, annotation_file, bg_dir, bg_list='SUN_database.txt',
-                 input_dim=224, all_angles=True, model_number=200, novel=False,
-                 shape=None, render_dir='Renders_semi_sphere', render_number=12, tour=2, random_range=0,
+                 input_dim=224, model_number=200, novel=False,
+                 shape='MultiView', shape_dir='Renders_semi_sphere',
+                 render_number=12, tour=2, random_range=0, point_num=2500,
                  cat_choice=None, train=True, mutated=False):
         self.root_dir = root_dir
         self.input_dim = input_dim
-        self.all_angles = all_angles
         self.bg_dir = bg_dir
         self.bg_list = pd.read_csv(os.path.join(self.bg_dir, bg_list))
         self.shape = shape
-        self.render_dir = render_dir
+        self.shape_dir = shape_dir
         self.render_number = render_number
+        self.point_num = point_num
         self.tour = tour
         self.random_range = random_range
         self.train = train
@@ -347,20 +342,6 @@ class ShapeNet(data.Dataset):
         if input_dim != 224:
             self.render_transform = transforms.Compose([transforms.Resize(input_dim), transforms.ToTensor()])
 
-        if shape == 'PointCloud':
-            # Load the point clouds
-            import pymesh
-            self.point_clouds = {}
-            point_cloud_path = join(self.root_dir, "CAD/sampledPCinfRay/")
-            for filename in glob.iglob(join(point_cloud_path, '**/*.ply'), recursive=True):
-                category = basename(os.path.dirname(filename))
-                idx = int(basename(filename).split(sep=".")[0])
-                vertices = pymesh.load_mesh(filename).vertices
-                if category in self.point_clouds:
-                    self.point_clouds[category][idx] = vertices
-                else:
-                    self.point_clouds[category] = {idx: vertices}
-
     def __len__(self):
         return len(self.annotation_frame)
 
@@ -368,17 +349,16 @@ class ShapeNet(data.Dataset):
         cat_id = self.annotation_frame.iloc[idx, 1]
         example_id = self.annotation_frame.iloc[idx, 2]
         label = self.annotation_frame.iloc[idx, 3:].values
-        label = np.append(label, [0]) if self.all_angles else label
+        label = np.append(label, [0])
         label = label.astype('int')
 
         # load render images
         im_render = Image.open(os.path.join(self.root_dir, self.annotation_frame.iloc[idx, 0]))
 
         # random rotation
-        if self.all_angles:
-            r = max(-45, min(45, np.random.randn() * 15))
-            im_render = im_render.rotate(r)
-            label[-1] = label[-1] + r
+        r = max(-45, min(45, np.random.randn() * 15))
+        im_render = im_render.rotate(r)
+        label[-1] = label[-1] + r
 
         # load background images and composite it with render images
         bg = cv2.imread(os.path.join(self.bg_dir, self.bg_list.iloc[np.random.randint(len(self.bg_list)), 1])).copy()
@@ -397,11 +377,7 @@ class ShapeNet(data.Dataset):
             if np.random.random() > 0.5:
                 im_composite = im_composite.transpose(Image.FLIP_LEFT_RIGHT)
                 label[0] = (360 - label[0]) % 360
-                label[-1] = -label[-1] if self.all_angles else label[-1]
-
-            if not self.all_angles and np.random.random() > 0.5:
-                r = max(-45, min(45, np.random.randn() * 10))
-                im_composite = im_composite.rotate(r)
+                label[-1] = -label[-1]
 
             im = self.im_augmentation(im_composite)
         else:
@@ -409,49 +385,35 @@ class ShapeNet(data.Dataset):
 
         # change the original label to classification label
         label[1] = label[1] + 90.
-        label[-1] = label[-1] + 180 if self.all_angles else label[-1]
+        label[-1] = label[-1] + 180
 
         # load the correct data according to selected shape representation
         if self.shape is None:
             label = torch.from_numpy(label).long()
             return im, label
 
-        elif self.shape == 'MultiView':
-            # load reference images in a Tensor of size K*C*H*W
-            render_example_path = os.path.join(self.root_dir, self.render_dir, str('%08d' % cat_id), example_id,
+        # randomize the canonical frame in azimuth
+        # range_0: [-45, 45]; range_1: [-90, 90]; range_2: [-180, 180]
+        if self.mutated and cat not in self.bad_cats:
+            mutation = np.random.randint(-8, 9) % 72 if self.random_range == 0 else \
+                (np.random.randint(-17, 18) % 72 if self.random_range == 1 else np.random.randint(0, 72))
+            label[0] = (label[0] - mutation * 5) % 360
+        else:
+            mutation = 0
+
+        if self.shape == 'MultiView':
+            # load render images in a Tensor of size K*C*H*W
+            render_example_path = os.path.join(self.root_dir, self.shape_dir, str('%08d' % cat_id), example_id,
                                                self.render_path)
-
-            # mutate the render orders
-            # we render each 5 degree in azimuth and 30 degree in elevation
-            # range_0: [-45, 45]; range_1: [-90, 90]; range_2: [-180, 180]
-            if self.mutated:
-                mutation = np.random.randint(-8, 9) % 72 if self.random_range == 0 else \
-                    (np.random.randint(-17, 18) % 72 if self.random_range == 1 else np.random.randint(0, 72))
-                label[0] = (label[0] - mutation * 5) % 360
-            else:
-                mutation = 0
-
-            # read multiview rendered images
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, mutation)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour,
+                                      mutation)
 
             label = torch.from_numpy(label).long()
             return im, renders, label
 
-        else:
-            # load point_clouds
-            point_subset = np.random.choice(self.point_clouds[cat][cad_index].shape[0],
-                                            self.pt_cloud_size, replace=False)
-            point_cloud = torch.from_numpy(self.point_clouds[cat][cad_index][point_subset]).float()
-
-            # Apply rotation
-            if self.mutated:
-                old_label = label[0]
-                alpha = np.random.uniform(-np.pi / 4, np.pi / 4)
-                rot_matrix = np.array([[np.cos(alpha), -np.sin(alpha), 0.],
-                                       [np.sin(alpha), np.cos(alpha), 0.],
-                                       [0., 0., 1.]])
-                point_cloud = np.matmul(point_cloud, rot_matrix.transpose())
-                label[0] = (old_label - alpha * 180. / np.pi) % 360
+        if self.shape == 'PointCloud':
+            example_path = os.path.join(self.root_dir, self.shape_dir, cat, str('%08d' % cat_id), example_id, 'compressed.ply')
+            point_cloud = read_pointcloud(example_path, self.point_num, mutation)
 
             return im, point_cloud, label
 
@@ -459,15 +421,14 @@ class ShapeNet(data.Dataset):
 # ================================================= #
 # Datasets only used for evaluation
 # ================================================= #
-class Pix3d(data.Dataset):
+class Pix3D(data.Dataset):
     def __init__(self,
-                 root_dir, annotation_file, input_dim=224, shape=None, 
-                 cat_choice=None, all_angles=True, random_model=False,
-                 render_dir='Renders_semi_sphere', render_number=12, tour=2):
+                 root_dir, annotation_file, input_dim=224, shape='MultiView',
+                 cat_choice=None, random_model=False,
+                 shape_dir='Renders_semi_sphere', render_number=12, tour=2):
         self.root_dir = root_dir
-        self.all_angles = all_angles
         self.shape = shape
-        self.render_dir = render_dir
+        self.shape_dir = shape_dir
         self.render_number = render_number
         self.tour = tour
         self.random_model = random_model
@@ -506,7 +467,7 @@ class Pix3d(data.Dataset):
             random_idx = np.random.randint(len(df_cat))
             example_id = self.annotation_frame.iloc[random_idx, 7]
             model_name = self.annotation_frame.iloc[random_idx, 8]
-        label = self.annotation_frame.iloc[idx, 9:].values if self.all_angles else self.annotation_frame.iloc[idx, 9:-1].values
+        label = self.annotation_frame.iloc[idx, 9:].values
         label = label.astype('int')
         label = torch.from_numpy(label).long()
 
@@ -520,9 +481,9 @@ class Pix3d(data.Dataset):
         elif self.shape == 'MultiView':
             # load render images in a Tensor of size K*C*H*W
             if model_name == 'model':
-                render_example_path = os.path.join(self.root_dir, self.render_dir, cat_id, example_id, self.render_path)
+                render_example_path = os.path.join(self.root_dir, self.shape_dir, cat_id, example_id, self.render_path)
             else:
-                render_example_path = os.path.join(self.root_dir, self.render_dir, cat_id, example_id, model_name, self.render_path)
+                render_example_path = os.path.join(self.root_dir, self.shape_dir, cat_id, example_id, model_name, self.render_path)
 
             # read multiview rendered images
             renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0)
@@ -532,11 +493,11 @@ class Pix3d(data.Dataset):
 
 class Linemod(data.Dataset):
     def __init__(self,
-                 root_dir, annotation_file, input_dim=224, shape=None, cat_choice=None,
-                 render_dir='Renders_semi_sphere', render_number=12, tour=2):
+                 root_dir, annotation_file, input_dim=224, shape='MultiView', cat_choice=None,
+                 shape_dir='Renders_semi_sphere', render_number=12, tour=2):
         self.root_dir = root_dir
         self.shape = shape
-        self.render_dir = render_dir
+        self.shape_dir = shape_dir
         self.render_number = render_number
         self.tour = tour
         self.render_path = 'crop'
@@ -586,7 +547,7 @@ class Linemod(data.Dataset):
 
         elif self.shape == 'MultiView':
             # load render images in a Tensor of size K*C*H*W
-            render_example_path = os.path.join(self.root_dir, self.render_dir, '%02d' % obj_id, self.render_path)
+            render_example_path = os.path.join(self.root_dir, self.shape_dir, '%02d' % obj_id, self.render_path)
 
             # read multiview rendered images
             renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0)
@@ -601,7 +562,9 @@ if __name__ == "__main__":
 
     #d = Linemod(cat_choice=[1], shape='MultiView')
 
-    d = Pascal3D(root_dir, annotation_file, shape='MultiView')
+    root_dir = '/home/xiao/Datasets/Pascal3D'
+    annotation_file = 'Pascal3D.txt'
+    d = Pascal3D(root_dir, annotation_file, shape='PointCloud', shape_dir='pointcloud')
 
     print('length is %d' % len(d))
 
@@ -611,11 +574,9 @@ if __name__ == "__main__":
     test_loader = DataLoader(d, batch_size=4, shuffle=False)
     begin = time.time()
     for i, data in enumerate(test_loader):
-        #im, label = data
-        im, renders, label = data
+        im, shape, label = data
         print(time.time() - begin)
         if i == 0:
-            print(im.size(), renders.size(), label.size())
-            #print(im.size(), label.size())
+            print(im.size(), shape.size(), label.size())
             print(label)
             sys.exit()

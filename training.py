@@ -9,6 +9,7 @@ import os, sys
 import time
 import matplotlib
 matplotlib.use('agg')  # use matplotlib without GUI support
+import matplotlib.pyplot as plt
 
 sys.path.append('./auxiliary/')
 from auxiliary.model import PoseEstimator, BaselineEstimator
@@ -27,7 +28,8 @@ parser.add_argument('--workers', type=int, help='number of data loading workers'
 parser.add_argument('--n_epoch', type=int, default=200, help='number of epochs to train for')
 parser.add_argument('--print_freq', type=int, default=50, help='frequence of output print')
 
-parser.add_argument('--shape', type=str, default=None, help='shape representation')
+parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere', help='subdirectory conatining the shape')
+parser.add_argument('--shape', type=str, default='MultiView', help='shape representation')
 parser.add_argument('--model', type=str, default=None, help='optional reload model path')
 parser.add_argument('--pretrained_resnet', action='store_true', help='use pretrained ResNet')
 parser.add_argument('--img_feature_dim', type=int, default=1024, help='feature dimension for images')
@@ -64,18 +66,18 @@ annotation_file = '{}.txt'.format(opt.dataset)
 if opt.dataset == 'ObjectNet3D':
     test_cats = ['bed', 'bookshelf', 'calculator', 'cellphone', 'computer', 'door', 'filing_cabinet', 'guitar', 'iron',
                  'knife', 'microwave', 'pen', 'pot', 'rifle', 'shoe', 'slipper', 'stove', 'toilet', 'tub', 'wheelchair']
-    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
                              cat_choice=test_cats, keypoint=opt.keypoint, novel=opt.novel, mutated=opt.mutated,
                              render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
                             cat_choice=test_cats, keypoint=opt.keypoint, mutated=False, novel=opt.novel,
                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
 elif opt.dataset == 'Pascal3D':
     test_cats = ['bus', 'motorbike'] if opt.novel else None
-    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
                              mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
                              render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape,
+    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
                             mutated=False, cat_choice=test_cats, novel=opt.novel,
                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
 elif opt.dataset == 'ShapeNetCore':
@@ -88,11 +90,11 @@ elif opt.dataset == 'ShapeNetCore':
     dataset_train = ShapeNet(train=True, root_dir=root_dir, annotation_file=annotation_file, bg_dir=bg_dir,
                              shape=opt.shape, mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
                              render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pix3d(root_dir=test_root_dir, annotation_file=test_annotation_file,
+    dataset_eval = Pix3D(root_dir=test_root_dir, annotation_file=test_annotation_file,
                          shape=opt.shape, render_number=opt.num_render, tour=opt.tour)
 else:
     sys.exit(0)
-
+    
 train_loader = DataLoader(dataset_train, batch_size=opt.batch_size, shuffle=True, num_workers=opt.workers, drop_last=True)
 eval_loader = DataLoader(dataset_eval, batch_size=opt.batch_size, shuffle=False, num_workers=opt.workers, drop_last=True)
 # ========================================================== #
@@ -130,22 +132,18 @@ criterion_reg = DeltaLoss(bin_size)
 training_mode = 'train_baseline_{}'.format(opt.dataset) if opt.shape is None else 'train_{}_{}'.format(opt.shape, opt.dataset)
 if opt.novel:
     training_mode = '{}_novel'.format(training_mode)
-result_path = os.path.join(os.getcwd(), 'model', training_mode)
+result_path = os.path.join(os.getcwd(), 'result', training_mode)
 if not os.path.exists(result_path):
     os.makedirs(result_path)
 logname = os.path.join(result_path, 'training_log.txt')
 with open(logname, 'a') as f:
     f.write(str(opt) + '\n' + '\n')
-    f.write(str(model) + '\n' + '\n')
     f.write('training set: ' + str(len(dataset_train)) + '\n')
     f.write('evaluation set: ' + str(len(dataset_eval)) + '\n')
 
 # arrays for saving the losses and accuracies
 losses = np.zeros((opt.n_epoch, 2))  # training loss and validation loss
 accuracies = np.zeros((opt.n_epoch, 2))  # train and val accuracy for classification and viewpoint estimation
-
-sys.stdout = open(os.path.join(result_path, "out_log.txt"), "w")
-sys.stderr = open(os.path.join(result_path, "err_log.txt"), "w")
 # ========================================================== #
 
 
@@ -236,8 +234,7 @@ for epoch in range(opt.n_epoch):
         'best_acc': best_acc,
         'optimizer': optimizer.state_dict(),
         'losses': losses,
-        'accuracies': accuracies,
-        'date_time': now
+        'accuracies': accuracies
     }, is_best, os.path.join(result_path, 'checkpoint.pth'), result_path)
 
     # save losses and accuracies into log file
