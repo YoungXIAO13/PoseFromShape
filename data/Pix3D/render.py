@@ -1,7 +1,4 @@
 import os, sys
-import bpy
-import math
-from math import radians
 import pandas as pd
 from tqdm import tqdm
 import numpy as np

@@ -1,7 +1,4 @@
 import os, sys
-import bpy
-import math
-from math import radians
 import numpy as np
 import shutil
 from tqdm import tqdm
@@ -87,7 +84,7 @@ cats = ['airplane', 'bag', 'bathtub', 'bed', 'birdhouse', 'bookshelf', 'bus', 'c
         'chair', 'clock', 'dishwasher', 'display', 'faucet', 'lamp', 'laptop', 'speaker', 'mailbox', 'microwave', 
         'motorcycle', 'piano', 'pistol', 'printer', 'rifle', 'sofa', 'table', 'train', 'watercraft', 'washer']
         
-csv_file = 'ShapeNetCore.txt'
+csv_file = 'synthetic_annotation.txt'
 if not os.path.exists(csv_file):
     with open(csv_file, 'a') as f:
         f.write('image_path,cat_id,example_id,azimuth,elevation\n')

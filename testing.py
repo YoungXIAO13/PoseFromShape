@@ -1,11 +1,6 @@
 import argparse
 import numpy as np
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
-import random
 import os, sys
-import time
 import matplotlib
 matplotlib.use('agg')  # use matplotlib without GUI support
 
@@ -20,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 
+parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere', help='subdirectory conatining the shape')
 parser.add_argument('--shape', type=str, default=None, help='shape representation')
 parser.add_argument('--model', type=str, default=None, help='optional reload model path')
 parser.add_argument('--img_feature_dim', type=int, default=1024, help='feature dimension for images')
@@ -32,7 +28,7 @@ parser.add_argument('--output_dir', type=str, default=None, help='where to save 
 parser.add_argument('--dataset', type=str, default=None, help='testing dataset')
 parser.add_argument('--novel', action='store_true', help='whether to test on novel cats')
 parser.add_argument('--keypoint', action='store_true', help='whether to use only training samples with anchors')
-parser.add_argument('--num_render', type=int, default=12, help='number of render images used in each sample')
+parser.add_argument('--view_num', type=int, default=12, help='number of render images used in each sample')
 parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
 parser.add_argument('--random_model', action='store_true', help='whether use random model in testing')
 
@@ -48,7 +44,7 @@ if opt.shape is None:
 else:
     model = PoseEstimator(shape=opt.shape, shape_feature_dim=opt.shape_feature_dim, img_feature_dim=opt.img_feature_dim,
                           azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes,
-                          render_number=opt.num_render)
+                          view_num=opt.view_num)
 model.cuda()
 if not os.path.isfile(opt.model):
     raise ValueError('Non existing file: {0}'.format(opt.model))
@@ -81,8 +77,8 @@ if opt.dataset == 'Pascal3D':
                  'train', 'tvmonitor']
     for cat in test_cats:
         dataset_test = Pascal3D(root_dir=root_dir, annotation_file=annotation_file,
-                                cat_choice=[cat], train=False, mutated=False, shape=opt.shape,
-                                render_number=opt.num_render, tour=opt.tour, random_model=opt.random_model)
+                                cat_choice=[cat], train=False, random=False, shape=opt.shape, shape_dir=opt.shape_dir,
+                                view_num=opt.view_num, tour=opt.tour, random_model=opt.random_model)
         Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
                                              predictions_path, logname)
 
@@ -91,9 +87,9 @@ elif opt.dataset == 'ObjectNet3D':
     test_cats = ['bed', 'bookshelf', 'calculator', 'cellphone', 'computer', 'door', 'filing_cabinet', 'guitar', 'iron',
                  'knife', 'microwave', 'pen', 'pot', 'rifle', 'shoe', 'slipper', 'stove', 'toilet', 'tub', 'wheelchair']
     for cat in test_cats:
-        dataset_test = Pascal3D(root_dir=root_dir, annotation_file=annotation_file,
-                                cat_choice=[cat], train=False, mutated=False, keypoint=True, shape=opt.shape,
-                                render_number=opt.num_render, tour=opt.tour, random_model=opt.random_model)
+        dataset_test = Pascal3D(root_dir=root_dir, annotation_file=annotation_file, shape_dir=opt.shape_dir,
+                                cat_choice=[cat], train=False, random=False, keypoint=True, shape=opt.shape,
+                                view_num=opt.view_num, tour=opt.tour, random_model=opt.random_model)
         Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
                                              predictions_path, logname)
 
@@ -103,7 +99,7 @@ elif opt.dataset == 'LineMod':
     for cat in test_cats:
         dataset_test = Linemod(root_dir=root_dir, annotation_file=annotation_file,
                                cat_choice=[int(cat)], shape=opt.shape,
-                               render_number=opt.num_render, tour=opt.tour, render_dir=opt.render_dir)
+                               view_num=opt.view_num, tour=opt.tour, shape_dir=opt.shape_dir)
         Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
                                              predictions_path, logname)
 
@@ -116,8 +112,8 @@ elif opt.dataset == 'Pix3D':
             annotation_file = '{}_annotation.txt'.format(cat)
             
         dataset_test = Pix3D(root_dir=root_dir, annotation_file=annotation_file,
-                             cat_choice=[cat], shape=opt.shape,
-                             render_number=opt.num_render, tour=opt.tour, random_model=opt.random_model)
+                             cat_choice=[cat], shape=opt.shape, shape_dir=opt.shape_dir,
+                             view_num=opt.view_num, tour=opt.tour, random_model=opt.random_model)
         Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
                                              predictions_path, logname)
 

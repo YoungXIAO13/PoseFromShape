@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import sys
+import os
 from torch.utils.data import DataLoader
 
 from auxiliary.utils import AverageValueMeter, get_pred_from_cls_output, rotation_acc, rotation_err

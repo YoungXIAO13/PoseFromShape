@@ -15,29 +15,21 @@ class BaselineEstimator(nn.Module):
 
         Arguments:
         img_feature_dim: output feature dimension for image
-        pretrained_resnet: use the ResNet pretrained on ImageNet if True
 
         Return:
         Three angle bin classification probability with a delta value regression for each bin
     """
-    def __init__(self, img_feature_dim=1024, separate_branch=False,
-                 azi_classes=24, ele_classes=12, inp_classes=24, pretrained_resnet=False):
+    def __init__(self, img_feature_dim=1024, azi_classes=24, ele_classes=12, inp_classes=24):
         super(BaselineEstimator, self).__init__()
 
         # RGB image encoder
-        self.img_encoder = resnet.resnet18(pretrained=pretrained_resnet, num_classes=img_feature_dim)
+        self.img_encoder = resnet.resnet18(num_classes=img_feature_dim)
 
         self.compress = nn.Sequential(nn.Linear(img_feature_dim, 800), nn.BatchNorm1d(800), nn.ReLU(inplace=True),
                                       nn.Linear(800, 400), nn.BatchNorm1d(400), nn.ReLU(inplace=True),
                                       nn.Linear(400, 200), nn.BatchNorm1d(200), nn.ReLU(inplace=True))
-        self.separate_branch = separate_branch
 
-        # separate branch for classification and regression
-        if separate_branch:
-            self.compress_delta = nn.Sequential(nn.Linear(img_feature_dim, 800), nn.BatchNorm1d(800), nn.ReLU(inplace=True),
-                                                nn.Linear(800, 400), nn.BatchNorm1d(400), nn.ReLU(inplace=True),
-                                                nn.Linear(400, 200), nn.BatchNorm1d(200), nn.ReLU(inplace=True))
-
+        # Pose estimator
         self.fc_cls_azi = nn.Linear(200, azi_classes)
         self.fc_cls_ele = nn.Linear(200, ele_classes)
         self.fc_cls_inp = nn.Linear(200, inp_classes)
@@ -51,15 +43,14 @@ class BaselineEstimator(nn.Module):
 
         # concatenate the features obtained from two encoders into one feature
         x = self.compress(img_feature)
+
         cls_azi = self.fc_cls_azi(x)
         cls_ele = self.fc_cls_ele(x)
         cls_inp = self.fc_cls_inp(x)
 
-        # use the shared features if share branch
-        x_delta = self.compress_delta(img_feature) if self.separate_branch else x
-        reg_azi = self.fc_reg_azi(x_delta)
-        reg_ele = self.fc_reg_ele(x_delta)
-        reg_inp = self.fc_reg_inp(x_delta)
+        reg_azi = self.fc_reg_azi(x)
+        reg_ele = self.fc_reg_ele(x)
+        reg_inp = self.fc_reg_inp(x)
         return [cls_azi, cls_ele, cls_inp, reg_azi, reg_ele, reg_inp]
 
 
@@ -85,7 +76,7 @@ class ShapeEncoderMV(nn.Module):
         N, K, C, H, W = renders.size()
         renders = renders.view(N*K, C, H, W)
 
-        # pass the encoder and reshape render features from dimension (N*K)*D1 to N*(K*D1)
+        # pass the encoder and reshape render features into a global feature vector
         render_feature = self.render_encoder(renders)
         render_feature = render_feature.view(N, -1)
         return render_feature
@@ -127,38 +118,28 @@ class PoseEstimator(nn.Module):
         img_feature_dim: output feature dimension for image
         shape_feature_dim: output feature dimension for shape
         shape: shape representation in PointCloud or MultiView
-        channels: channel number for multi-view encoder
-        pretrained_resnet: use the ResNet pretrained on ImageNet if True
 
         Return:
         Three angle bin classification probability with a delta value regression for each bin
     """
-    def __init__(self, render_number=12, img_feature_dim=1024, shape_feature_dim=256, channels=3, separate_branch=False,
-                 azi_classes=24, ele_classes=12, inp_classes=24, pretrained_resnet=False, shape='MultiView'):
+    def __init__(self, view_num=12, img_feature_dim=1024, shape_feature_dim=256,
+                 azi_classes=24, ele_classes=12, inp_classes=24, shape='MultiView'):
         super(PoseEstimator, self).__init__()
 
         # 3D shape encoder
         if shape == 'PointCloud':
             self.shape_encoder = ShapeEncoderPC(feature_dim=shape_feature_dim)
         else:
-            self.shape_encoder = ShapeEncoderMV(feature_dim=shape_feature_dim, channels=channels)
-        shape_feature_dim = shape_feature_dim * render_number if shape != 'PointCloud' else shape_feature_dim
+            self.shape_encoder = ShapeEncoderMV(feature_dim=shape_feature_dim)
+        shape_feature_dim = shape_feature_dim * view_num if shape != 'PointCloud' else shape_feature_dim
 
         # RGB image encoder
-        self.img_encoder = resnet.resnet18(pretrained=pretrained_resnet, num_classes=img_feature_dim)
+        self.img_encoder = resnet.resnet18(num_classes=img_feature_dim)
 
         self.compress = nn.Sequential(nn.Linear(shape_feature_dim + img_feature_dim, 800),
                                       nn.BatchNorm1d(800), nn.ReLU(inplace=True),
                                       nn.Linear(800, 400), nn.BatchNorm1d(400), nn.ReLU(inplace=True),
                                       nn.Linear(400, 200), nn.BatchNorm1d(200), nn.ReLU(inplace=True))
-        self.separate_branch = separate_branch
-
-        # separate branch for classification and regression
-        if separate_branch:
-            self.compress_delta = nn.Sequential(nn.Linear(shape_feature_dim + img_feature_dim, 800),
-                                                nn.BatchNorm1d(800), nn.ReLU(inplace=True),
-                                                nn.Linear(800, 400), nn.BatchNorm1d(400), nn.ReLU(inplace=True),
-                                                nn.Linear(400, 200), nn.BatchNorm1d(200), nn.ReLU(inplace=True))	
 
         self.fc_cls_azi = nn.Linear(200, azi_classes)
         self.fc_cls_ele = nn.Linear(200, ele_classes)
@@ -177,15 +158,15 @@ class PoseEstimator(nn.Module):
         # concatenate the features obtained from two encoders into one feature
         global_feature = torch.cat((shape_feature, img_feature), 1)
         x = self.compress(global_feature)
+
+        # get the predictions for classification and regression
         cls_azi = self.fc_cls_azi(x)
         cls_ele = self.fc_cls_ele(x)
         cls_inp = self.fc_cls_inp(x)
 
-        # use the shared features if share branch
-        x_delta = self.compress_delta(global_feature) if self.separate_branch else x
-        reg_azi = self.fc_reg_azi(x_delta)
-        reg_ele = self.fc_reg_ele(x_delta)
-        reg_inp = self.fc_reg_inp(x_delta)
+        reg_azi = self.fc_reg_azi(x)
+        reg_ele = self.fc_reg_ele(x)
+        reg_inp = self.fc_reg_inp(x)
         return [cls_azi, cls_ele, cls_inp, reg_azi, reg_ele, reg_inp]
 
 
@@ -196,9 +177,7 @@ if __name__ == '__main__':
     sim_renders = Variable(torch.rand(4, 12, 3, 224, 224))
     sim_im = sim_im.cuda()
     sim_renders = sim_renders.cuda()
-    #model = PoseEstimator(shape='MultiView', separate_branch=False)
-    model = BaselineEstimator(separate_branch=False, pretrained_resnet=False)
+    model = PoseEstimator(shape='MultiView')
     model.cuda()
-    #cls_azi, cls_ele, cls_inp, reg_azi, reg_ele, reg_inp = model(sim_im, sim_renders)
-    cls_azi, cls_ele, cls_inp, reg_azi, reg_ele, reg_inp = model(sim_im)
+    cls_azi, cls_ele, cls_inp, reg_azi, reg_ele, reg_inp = model(sim_im, sim_renders)
     print(cls_azi.size(), cls_ele.size(), cls_inp.size(), reg_azi.size(), reg_ele.size(), reg_inp.size())

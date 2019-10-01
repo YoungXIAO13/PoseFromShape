@@ -1,6 +1,5 @@
 import torch.utils.data as data
 import os
-import glob
 from os.path import join, basename
 import torch
 import torchvision.transforms as transforms
@@ -81,19 +80,19 @@ def resize_padding(im, desired_size):
     return new_im
 
 
-def read_multiviwes(render_transform, render_example_path, render_number, tour, mutation):
+def read_multiviwes(render_transform, render_example_path, view_num, tour, mutation):
     """
     Read multi view rendered images from the target path
     :param render_transform: image processing applied to the rendered image
     :param render_example_path: folder containing the rendered images for training example
-    :param render_number: number of rendered images used as 3D shape representation
+    :param view_num: number of rendered images used as 3D shape representation
     :param tour: number of elevations of the rendered images
     :param mutation: randomization with respect to the canonical view in term of azimuth
-    :return:
+    :return: shape tensor of dimension (view_num, C, H, W)
     """
     render_names = [name for name in os.listdir(render_example_path)]
     render_names.sort()
-    step = int(72 / (render_number / tour))
+    step = int(72 / (view_num / tour))
     renders_low = np.linspace(0, 71, 72, dtype='int')
     renders_mid = renders_low + 72
     renders_up = renders_mid + 72
@@ -106,23 +105,32 @@ def read_multiviwes(render_transform, render_example_path, render_number, tour, 
         render_ids = np.concatenate((np.concatenate((renders_low[mutation:], renders_low[:mutation]))[::step],
                                      np.concatenate((renders_mid[mutation:], renders_mid[:mutation]))[::step],
                                      np.concatenate((renders_up[mutation:], renders_up[:mutation]))[::step]))
+
+    # load multi views and concatenate them into a tensor
     renders = []
     for i in range(0, len(render_ids)):
         render = Image.open(os.path.join(render_example_path, render_names[render_ids[i]]))
         render = render.convert('RGB')
         render = render_transform(render)
         renders.append(render.unsqueeze(0))
+
     return torch.cat(renders, 0)
 
 
 def read_pointcloud(model_path, point_num, rotation=0):
+    """
+    Read point cloud from the target path
+    :param model_path: file path for the point cloud
+    :param point_num: input point number of the point cloud
+    :param rotation: randomization with respect to the canonical view in term of azimuth
+    :return: shape tensor
+    """
     # read in original point cloud
     point_cloud_raw = pymesh.load_mesh(model_path).vertices
 
     # randomly select a fix number of points on the surface
     point_subset = np.random.choice(point_cloud_raw.shape[0], point_num, replace=False)
     point_cloud = point_cloud_raw[point_subset]
-    max_size = np.max(np.abs(point_cloud))
 
     # apply the random rotation on the point cloud
     if rotation != 0:
@@ -133,7 +141,11 @@ def read_pointcloud(model_path, point_num, rotation=0):
         point_cloud = np.matmul(point_cloud, rot_matrix.transpose())
 
     point_cloud = torch.from_numpy(point_cloud.transpose()).float()
-    point_cloud = point_cloud / max_size
+
+    # normalize the point cloud into [0, 1]
+    point_cloud = point_cloud - torch.min(point_cloud)
+    point_cloud = point_cloud / torch.max(point_cloud)
+
     return point_cloud
 
 
@@ -143,18 +155,18 @@ def read_pointcloud(model_path, point_num, rotation=0):
 class Pascal3D(data.Dataset):
     def __init__(self,
                  root_dir, annotation_file, input_dim=224, shape='MultiView', shape_dir='Renders_semi_sphere',
-                 mutated=False, novel=True, keypoint=False, train=True, cat_choice=None, random_model=False,
-                 render_number=12, tour=2, random_range=0, point_num=2500):
+                 random=False, novel=True, keypoint=False, train=True, cat_choice=None, random_model=False,
+                 view_num=12, tour=2, random_range=0, point_num=2500):
 
         self.root_dir = root_dir
         self.input_dim = input_dim
         self.shape = shape
         self.shape_dir = shape_dir
         self.tour = tour
-        self.render_number = render_number
+        self.view_num = view_num
         self.point_num = point_num
         self.train = train
-        self.mutated = mutated
+        self.random = random
         self.random_range = random_range
         self.random_model = random_model
         self.bad_cats = ['ashtray', 'basket', 'bottle', 'bucket', 'can', 'cap', 'cup', 'fire_extinguisher', 'fish_tank',
@@ -266,7 +278,7 @@ class Pascal3D(data.Dataset):
 
         # randomize the canonical frame in azimuth
         # range_0: [-45, 45]; range_1: [-90, 90]; range_2: [-180, 180]
-        if self.mutated and cat not in self.bad_cats:
+        if self.random and cat not in self.bad_cats:
             mutation = np.random.randint(-8, 9) % 72 if self.random_range == 0 else \
                 (np.random.randint(-17, 18) % 72 if self.random_range == 1 else np.random.randint(0, 72))
             label[0] = (label[0] - mutation * 5) % 360
@@ -276,7 +288,7 @@ class Pascal3D(data.Dataset):
         if self.shape == 'MultiView':
             # load render images in a Tensor of size K*C*H*W
             render_example_path = os.path.join(self.root_dir, self.shape_dir, cat, '%02d' % cad_index, self.render_path)
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, mutation)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.view_num, self.tour, mutation)
 
             label = torch.from_numpy(label).long()
             return im, renders, label
@@ -292,20 +304,20 @@ class ShapeNet(data.Dataset):
     def __init__(self, root_dir, annotation_file, bg_dir, bg_list='SUN_database.txt',
                  input_dim=224, model_number=200, novel=False,
                  shape='MultiView', shape_dir='Renders_semi_sphere',
-                 render_number=12, tour=2, random_range=0, point_num=2500,
-                 cat_choice=None, train=True, mutated=False):
+                 view_num=12, tour=2, random_range=0, point_num=2500,
+                 cat_choice=None, train=True, random=False):
         self.root_dir = root_dir
         self.input_dim = input_dim
         self.bg_dir = bg_dir
         self.bg_list = pd.read_csv(os.path.join(self.bg_dir, bg_list))
         self.shape = shape
         self.shape_dir = shape_dir
-        self.render_number = render_number
+        self.view_num = view_num
         self.point_num = point_num
         self.tour = tour
         self.random_range = random_range
         self.train = train
-        self.mutated = mutated
+        self.random = random
 
         # load the appropriate data frame for annotations
         frame = pd.read_csv(os.path.join(root_dir, annotation_file))
@@ -346,14 +358,14 @@ class ShapeNet(data.Dataset):
         return len(self.annotation_frame)
 
     def __getitem__(self, idx):
-        cat_id = self.annotation_frame.iloc[idx, 1]
-        example_id = self.annotation_frame.iloc[idx, 2]
+        cat_id = self.annotation_frame.iloc[idx]['cat_id']
+        example_id = self.annotation_frame.iloc[idx]['example_id']
         label = self.annotation_frame.iloc[idx, 3:].values
         label = np.append(label, [0])
         label = label.astype('int')
 
         # load render images
-        im_render = Image.open(os.path.join(self.root_dir, self.annotation_frame.iloc[idx, 0]))
+        im_render = Image.open(os.path.join(self.root_dir, self.annotation_frame.iloc[idx]['image_path']))
 
         # random rotation
         r = max(-45, min(45, np.random.randn() * 15))
@@ -394,7 +406,7 @@ class ShapeNet(data.Dataset):
 
         # randomize the canonical frame in azimuth
         # range_0: [-45, 45]; range_1: [-90, 90]; range_2: [-180, 180]
-        if self.mutated and cat not in self.bad_cats:
+        if self.random:
             mutation = np.random.randint(-8, 9) % 72 if self.random_range == 0 else \
                 (np.random.randint(-17, 18) % 72 if self.random_range == 1 else np.random.randint(0, 72))
             label[0] = (label[0] - mutation * 5) % 360
@@ -405,7 +417,7 @@ class ShapeNet(data.Dataset):
             # load render images in a Tensor of size K*C*H*W
             render_example_path = os.path.join(self.root_dir, self.shape_dir, str('%08d' % cat_id), example_id,
                                                self.render_path)
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour,
+            renders = read_multiviwes(self.render_transform, render_example_path, self.view_num, self.tour,
                                       mutation)
 
             label = torch.from_numpy(label).long()
@@ -425,11 +437,11 @@ class Pix3D(data.Dataset):
     def __init__(self,
                  root_dir, annotation_file, input_dim=224, shape='MultiView',
                  cat_choice=None, random_model=False,
-                 shape_dir='Renders_semi_sphere', render_number=12, tour=2):
+                 shape_dir='Renders_semi_sphere', view_num=12, tour=2):
         self.root_dir = root_dir
         self.shape = shape
         self.shape_dir = shape_dir
-        self.render_number = render_number
+        self.view_num = view_num
         self.tour = tour
         self.random_model = random_model
         self.render_path = 'crop'
@@ -457,16 +469,16 @@ class Pix3D(data.Dataset):
         return len(self.annotation_frame)
 
     def __getitem__(self, idx):
-        img_name = os.path.join(self.root_dir, self.annotation_frame.iloc[idx, 5])
-        cat_id = self.annotation_frame.iloc[idx, 6]
-        example_id = self.annotation_frame.iloc[idx, 7]
-        model_name = self.annotation_frame.iloc[idx, 8]
+        img_name = os.path.join(self.root_dir, self.annotation_frame.iloc[idx]['image_path'])
+        cat_id = self.annotation_frame.iloc[idx]['cat_id']
+        example_id = self.annotation_frame.iloc[idx]['example_id']
+        model_name = self.annotation_frame.iloc[idx]['model_name']
         if self.random_model:
             df_cat = self.annotation_frame[self.annotation_frame.cat_id == cat_id]
             df_cat = df_cat[df_cat.example_id != example_id]
             random_idx = np.random.randint(len(df_cat))
-            example_id = self.annotation_frame.iloc[random_idx, 7]
-            model_name = self.annotation_frame.iloc[random_idx, 8]
+            example_id = self.annotation_frame.iloc[random_idx]['example_id']
+            model_name = self.annotation_frame.iloc[random_idx]['model_name']
         label = self.annotation_frame.iloc[idx, 9:].values
         label = label.astype('int')
         label = torch.from_numpy(label).long()
@@ -486,7 +498,7 @@ class Pix3D(data.Dataset):
                 render_example_path = os.path.join(self.root_dir, self.shape_dir, cat_id, example_id, model_name, self.render_path)
 
             # read multiview rendered images
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.view_num, self.tour, 0)
 
             return im, renders, label
 
@@ -494,11 +506,11 @@ class Pix3D(data.Dataset):
 class Linemod(data.Dataset):
     def __init__(self,
                  root_dir, annotation_file, input_dim=224, shape='MultiView', cat_choice=None,
-                 shape_dir='Renders_semi_sphere', render_number=12, tour=2):
+                 shape_dir='Renders_semi_sphere', view_num=12, tour=2):
         self.root_dir = root_dir
         self.shape = shape
         self.shape_dir = shape_dir
-        self.render_number = render_number
+        self.view_num = view_num
         self.tour = tour
         self.render_path = 'crop'
         self.render_transform = transforms.ToTensor()
@@ -521,12 +533,12 @@ class Linemod(data.Dataset):
         return len(self.annotation_frame)
 
     def __getitem__(self, idx):
-        obj_id = self.annotation_frame.iloc[idx, 0]
-        img_name = os.path.join(self.root_dir, self.annotation_frame.iloc[idx, 1])
-        x = self.annotation_frame.iloc[idx, 2]
-        y = self.annotation_frame.iloc[idx, 3]
-        w = self.annotation_frame.iloc[idx, 4]
-        h = self.annotation_frame.iloc[idx, 5]
+        obj_id = self.annotation_frame.iloc[idx]['obj_id']
+        img_name = os.path.join(self.root_dir, self.annotation_frame.iloc[idx]['image_path'])
+        x = self.annotation_frame.iloc[idx]['x']
+        y = self.annotation_frame.iloc[idx]['y']
+        w = self.annotation_frame.iloc[idx]['w']
+        h = self.annotation_frame.iloc[idx]['h']
 
         # use continue viewpoint annotation
         label = self.annotation_frame.iloc[idx, 6:].values
@@ -550,13 +562,13 @@ class Linemod(data.Dataset):
             render_example_path = os.path.join(self.root_dir, self.shape_dir, '%02d' % obj_id, self.render_path)
 
             # read multiview rendered images
-            renders = read_multiviwes(self.render_transform, render_example_path, self.render_number, self.tour, 0)
+            renders = read_multiviwes(self.render_transform, render_example_path, self.view_num, self.tour, 0)
 
             return im, renders, label
 
 
 if __name__ == "__main__":
-    #d = Pix3d(shape='MultiView', cat_choice=None, render_number=12, tour=2)
+    #d = Pix3d(shape='MultiView', cat_choice=None, view_num=12, tour=2)
 
     #d = ShapeNet(annotation_file='annotation_all_texture.txt', shape='MultiView', cat_choice=test_cats, novel=True)
 

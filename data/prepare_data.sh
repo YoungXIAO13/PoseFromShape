@@ -59,4 +59,5 @@ cd ShapeNetCore
 wget 'shapenet.cs.stanford.edu/shapenet/obj-zip/ShapeNetCore.v2.zip'
 unzip ShapeNetCore.v2.zip && rm ShapeNetCore.v2.zip
 python render.py
+python clean_annotation_file.py
 cd ..

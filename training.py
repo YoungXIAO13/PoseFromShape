@@ -1,7 +1,6 @@
 import argparse
 import numpy as np
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import random
@@ -39,10 +38,10 @@ parser.add_argument('--ele_classes', type=int, default=12, help='number of class
 parser.add_argument('--inp_classes', type=int, default=24, help='number of class for inplane rotation')
 
 parser.add_argument('--dataset', type=str, default=None, help='training dataset (ObjectNet3D / Pascal3D / ShapeNetCore)')
-parser.add_argument('--mutated', action='store_true', help='activate mutated training mode')
+parser.add_argument('--random', action='store_true', help='activate random canonical view data augmentation')
 parser.add_argument('--novel', action='store_true', help='whether to test on novel cats')
 parser.add_argument('--keypoint', action='store_true', help='whether to use only training samples with anchors')
-parser.add_argument('--num_render', type=int, default=12, help='number of render images used in each sample')
+parser.add_argument('--view_num', type=int, default=12, help='number of render images used in each sample')
 parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
 parser.add_argument('--random_range', type=int, default=0, help='variation range for randomized references')
 
@@ -66,20 +65,22 @@ annotation_file = '{}.txt'.format(opt.dataset)
 if opt.dataset == 'ObjectNet3D':
     test_cats = ['bed', 'bookshelf', 'calculator', 'cellphone', 'computer', 'door', 'filing_cabinet', 'guitar', 'iron',
                  'knife', 'microwave', 'pen', 'pot', 'rifle', 'shoe', 'slipper', 'stove', 'toilet', 'tub', 'wheelchair']
-    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
-                             cat_choice=test_cats, keypoint=opt.keypoint, novel=opt.novel, mutated=opt.mutated,
-                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
-                            cat_choice=test_cats, keypoint=opt.keypoint, mutated=False, novel=opt.novel,
-                            render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
+    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file,
+                             cat_choice=test_cats, keypoint=opt.keypoint, novel=opt.novel,
+                             shape=opt.shape, shape_dir=opt.shape_dir, view_num=opt.view_num, tour=opt.tour,
+                             random_range=opt.random_range, random=opt.random)
+    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file,
+                            cat_choice=test_cats, keypoint=opt.keypoint, random=False, novel=opt.novel,
+                            shape=opt.shape, shape_dir=opt.shape_dir, view_num=opt.view_num, tour=opt.tour)
 elif opt.dataset == 'Pascal3D':
     test_cats = ['bus', 'motorbike'] if opt.novel else None
-    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
-                             mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
-                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
-    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file, shape=opt.shape, shape_dir=opt.shape_dir,
-                            mutated=False, cat_choice=test_cats, novel=opt.novel,
-                            render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
+    dataset_train = Pascal3D(train=True, root_dir=root_dir, annotation_file=annotation_file,
+                             cat_choice=test_cats, novel=opt.novel,
+                             shape=opt.shape, shape_dir=opt.shape_dir, view_num=opt.view_num, tour=opt.tour,
+                             random=opt.random, random_range=opt.random_range)
+    dataset_eval = Pascal3D(train=False, root_dir=root_dir, annotation_file=annotation_file,
+                            shape=opt.shape, shape_dir=opt.shape_dir, view_num=opt.view_num, tour=opt.tour,
+                            random=False, cat_choice=test_cats, novel=opt.novel)
 elif opt.dataset == 'ShapeNetCore':
     # train on synthetic data and evaluate on real data
     bg_dir = os.path.join('data', 'SUN')
@@ -88,10 +89,10 @@ elif opt.dataset == 'ShapeNetCore':
     test_cats = ['2818832', '2871439', '2933112', '3001627', '4256520', '4379243']
     
     dataset_train = ShapeNet(train=True, root_dir=root_dir, annotation_file=annotation_file, bg_dir=bg_dir,
-                             shape=opt.shape, mutated=opt.mutated, cat_choice=test_cats, novel=opt.novel,
-                             render_number=opt.num_render, tour=opt.tour, random_range=opt.random_range)
+                             shape=opt.shape, random=opt.random, cat_choice=test_cats, novel=opt.novel,
+                             view_num=opt.view_num, tour=opt.tour, random_range=opt.random_range)
     dataset_eval = Pix3D(root_dir=test_root_dir, annotation_file=test_annotation_file,
-                         shape=opt.shape, render_number=opt.num_render, tour=opt.tour)
+                         shape=opt.shape, view_num=opt.view_num, tour=opt.tour)
 else:
     sys.exit(0)
     
@@ -107,7 +108,7 @@ if opt.shape is None:
 else:
     model = PoseEstimator(shape=opt.shape, shape_feature_dim=opt.shape_feature_dim, img_feature_dim=opt.img_feature_dim,
                           azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes,
-                          render_number=opt.num_render)
+                          view_num=opt.view_num)
 model.cuda()
 if opt.model is not None:
     load_checkpoint(model, opt.model)
@@ -129,7 +130,7 @@ criterion_reg = DeltaLoss(bin_size)
 
 # =============DEFINE stuff for logs ======================= #
 # write basic information into the log file
-training_mode = 'train_baseline_{}'.format(opt.dataset) if opt.shape is None else 'train_{}_{}'.format(opt.shape, opt.dataset)
+training_mode = 'baseline_{}'.format(opt.dataset) if opt.shape is None else '{}_{}'.format(opt.shape, opt.dataset)
 if opt.novel:
     training_mode = '{}_novel'.format(training_mode)
 result_path = os.path.join(os.getcwd(), 'result', training_mode)
