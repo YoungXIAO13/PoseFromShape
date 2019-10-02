@@ -17,11 +17,11 @@ If our project is helpful for your research, please consider citing:
 
 
 ## Updates
-Release training code with Point Cloud.
+Release training code with **Point Cloud**.
 
-See run/train_Pascal3D.sh and run/train_ObjectNet3D.sh for updated running script.
+See ```run/train_Pascal3D.sh``` and ```run/train_ObjectNet3D.sh``` for updated running script.
 
-See data/README.sh for more details in data preparation.
+See ```data/README.sh``` for more details in data preparation.
 
 
 ## Table of Content
