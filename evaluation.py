@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 import torch
 import os
 from torch.utils.data import DataLoader
@@ -15,7 +16,7 @@ def val(data_loader, model, bin_size, shape, criterion_azi=None, criterion_ele=N
     model.eval()
 
     with torch.no_grad():
-        for i, data in enumerate(data_loader):
+        for i, data in enumerate(tqdm(data_loader)):
             # load data and label
             if shape is not None:
                 im, shapes, label = data
