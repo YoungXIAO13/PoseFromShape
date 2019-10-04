@@ -1,1 +1,0 @@
-/home/xiao/Datasets/ObjectNet3D/ObjectNet3D.txt

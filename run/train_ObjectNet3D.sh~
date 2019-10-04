@@ -1,2 +1,0 @@
-python training.py --dataset=ObjectNet3D --n_epoch=200 --lr=1e-4 --decrease=100 --mutated --keypoint \
---novel --shape=PointCloud --shape_dir pointcloud --shape_feature_dim 1024
