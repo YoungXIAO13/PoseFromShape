@@ -106,3 +106,4 @@ venv.bak/
 # custom folder
 .idea/
 result/
+model/*.pth

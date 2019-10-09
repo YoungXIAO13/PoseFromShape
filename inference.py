@@ -15,22 +15,18 @@ from data.render_utils import render_obj
 
 # =================PARAMETERS=============================== #
 parser = argparse.ArgumentParser()
-
-parser.add_argument('--shape', type=str, default=None, help='shape representation')
 parser.add_argument('--model', type=str, default=None,  help='optional reload model path')
-parser.add_argument('--channels', type=int, default=3, help='input channels for the ResNet')
-parser.add_argument('--separate_branch', action='store_true', help='use separated branch for classification and regression network')
-parser.add_argument('--num_render', type=int, default=12,  help='number of render images used in each sample')
-parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
+parser.add_argument('--shape', type=str, default='MultiView', help='shape representation')
 
+# model hyper-parameters
+parser.add_argument('--view_num', type=int, default=12,  help='number of render images used in each sample')
+parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
 parser.add_argument('--img_feature_dim', type=int, default=1024,  help='feature dimension for textured images')
 parser.add_argument('--shape_feature_dim', type=int, default=256,  help='feature dimension for non-textured images')
-parser.add_argument('--azi_classes', type=int, default=24,  help='number of class for azimuth')
-parser.add_argument('--ele_classes', type=int, default=12,  help='number of class for elevation')
-parser.add_argument('--inp_classes', type=int, default=24,  help='number of class for inplane_rotation')
-parser.add_argument('--features', type=int, default=64, help='number of inplanes for the ResNet')
+parser.add_argument('--bin_size', type=int, default=15, help='bin size for the euler angle classification')
 parser.add_argument('--input_dim', type=int, default=224, help='input image dimension')
 
+# path to load the necessary input for network inference
 parser.add_argument('--image_path', type=str, default=None, help='real images path')
 parser.add_argument('--render_path', type=str, default=None, help='render images path')
 parser.add_argument('--obj_path', type=str, default=None, help='obj path')
@@ -41,9 +37,11 @@ print(opt)
 
 
 # ================CREATE NETWORK============================ #
+azi_classes, ele_classes, inp_classes = int(360 / opt.bin_size), int(180 / opt.bin_size), int(360 / opt.bin_size)
+
 model = PoseEstimator(shape=opt.shape, shape_feature_dim=opt.shape_feature_dim, img_feature_dim=opt.img_feature_dim,
-                      azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes,
-                      render_number=opt.num_render, separate_branch=opt.separate_branch, channels=opt.channels)
+                      azi_classes=azi_classes, ele_classes=ele_classes, inp_classes=inp_classes, view_num=opt.view_num)
+
 model.cuda()
 if opt.model is not None:
     checkpoint = torch.load(opt.model, map_location=lambda storage, loc: storage.cuda())
@@ -64,7 +62,7 @@ data_validating = transforms.Compose([transforms.ToTensor(), normalize])
 
 # load render images in a Tensor of size K*C*H*W
 render_transform = transforms.ToTensor()
-renders = read_multiviwes(render_transform, opt.render_path, opt.num_render, opt.tour, False)
+renders = read_multiviwes(render_transform, opt.render_path, opt.view_num, opt.tour, False)
 
 K, C, H, W = renders.size()
 renders = renders.view(1, K, C, H, W)

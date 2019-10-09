@@ -20,6 +20,8 @@ from evaluation import val
 
 # =================PARAMETERS=============================== #
 parser = argparse.ArgumentParser()
+
+# network training procedure settings
 parser.add_argument('--lr', type=float, default=0.0001, help='learning rate of optimizer')
 parser.add_argument('--decrease', type=int, default=100, help='epoch to decrease')
 parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
@@ -27,22 +29,23 @@ parser.add_argument('--workers', type=int, help='number of data loading workers'
 parser.add_argument('--n_epoch', type=int, default=200, help='number of epochs to train for')
 parser.add_argument('--print_freq', type=int, default=50, help='frequence of output print')
 
-parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere', help='subdirectory conatining the shape')
-parser.add_argument('--shape', type=str, default='MultiView', help='shape representation')
+# model hyper-parameters
 parser.add_argument('--model', type=str, default=None, help='optional reload model path')
-parser.add_argument('--pretrained_resnet', action='store_true', help='use pretrained ResNet')
 parser.add_argument('--img_feature_dim', type=int, default=1024, help='feature dimension for images')
 parser.add_argument('--shape_feature_dim', type=int, default=256, help='feature dimension for shapes')
-parser.add_argument('--azi_classes', type=int, default=24, help='number of class for azimuth')
-parser.add_argument('--ele_classes', type=int, default=12, help='number of class for elevation')
-parser.add_argument('--inp_classes', type=int, default=24, help='number of class for inplane rotation')
+parser.add_argument('--bin_size', type=int, default=15, help='bin size for the euler angle classification')
 
-parser.add_argument('--dataset', type=str, default=None, help='training dataset (ObjectNet3D / Pascal3D / ShapeNetCore)')
-parser.add_argument('--random', action='store_true', help='activate random canonical view data augmentation')
-parser.add_argument('--novel', action='store_true', help='whether to test on novel cats')
-parser.add_argument('--keypoint', action='store_true', help='whether to use only training samples with anchors')
+# dataset settings
+parser.add_argument('--dataset', type=str, default=None, choices=['ObjectNet3D', 'Pascal3D', 'ShapeNetCore'], help='dataset')
+parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere', help='subdirectory conatining the shape')
+parser.add_argument('--shape', type=str, default='MultiView', help='shape representation')
 parser.add_argument('--view_num', type=int, default=12, help='number of render images used in each sample')
 parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
+parser.add_argument('--novel', action='store_true', help='whether to test on novel cats')
+parser.add_argument('--keypoint', action='store_true', help='whether to use only training samples with anchors')
+
+# canonical view randomization as data augmentation
+parser.add_argument('--random', action='store_true', help='activate random canonical view data augmentation')
 parser.add_argument('--random_range', type=int, default=0, help='variation range for randomized references')
 
 opt = parser.parse_args()
@@ -102,13 +105,15 @@ eval_loader = DataLoader(dataset_eval, batch_size=opt.batch_size, shuffle=False,
 
 
 # ================CREATE NETWORK============================ #
+azi_classes, ele_classes, inp_classes = int(360 / opt.bin_size), int(180 / opt.bin_size), int(360 / opt.bin_size)
+
 if opt.shape is None:
     model = BaselineEstimator(img_feature_dim=opt.img_feature_dim,
-                              azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes)
+                              azi_classes=azi_classes, ele_classes=ele_classes, inp_classes=inp_classes)
 else:
     model = PoseEstimator(shape=opt.shape, shape_feature_dim=opt.shape_feature_dim, img_feature_dim=opt.img_feature_dim,
-                          azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes,
-                          view_num=opt.view_num)
+                          azi_classes=azi_classes, ele_classes=ele_classes, inp_classes=inp_classes, view_num=opt.view_num)
+
 model.cuda()
 if opt.model is not None:
     load_checkpoint(model, opt.model)
@@ -123,8 +128,7 @@ lrScheduler = optim.lr_scheduler.MultiStepLR(optimizer, [opt.decrease], gamma=0.
 criterion_azi = CELoss(360)
 criterion_ele = CELoss(180)
 criterion_inp = CELoss(360)
-bin_size = 360. / opt.azi_classes
-criterion_reg = DeltaLoss(bin_size)
+criterion_reg = DeltaLoss(opt.bin_size)
 # ========================================================== #
 
 
@@ -217,11 +221,11 @@ for epoch in range(opt.n_epoch):
     lrScheduler.step()
 
     # train
-    train_loss, train_acc_rot = train(train_loader, model, bin_size, opt.shape,
+    train_loss, train_acc_rot = train(train_loader, model, opt.bin_size, opt.shape,
                                       criterion_azi, criterion_ele, criterion_inp, criterion_reg, optimizer)
 
     # evaluate
-    eval_loss, eval_acc_rot, _, _ = val(eval_loader, model, bin_size, opt.shape,
+    eval_loss, eval_acc_rot, _, _ = val(eval_loader, model, opt.bin_size, opt.shape,
                                         criterion_azi, criterion_ele, criterion_inp, criterion_reg)
 
     # update best_acc and save checkpoint

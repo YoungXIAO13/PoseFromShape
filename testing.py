@@ -16,20 +16,21 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=2)
 
-parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere', help='subdirectory conatining the shape')
-parser.add_argument('--shape', type=str, default=None, help='shape representation')
-parser.add_argument('--model', type=str, default=None, help='optional reload model path')
+# model hyper-parameters
+parser.add_argument('--model', type=str, default=None, help='reload model path')
 parser.add_argument('--img_feature_dim', type=int, default=1024, help='feature dimension for images')
 parser.add_argument('--shape_feature_dim', type=int, default=256, help='feature dimension for shapes')
-parser.add_argument('--azi_classes', type=int, default=24, help='number of class for azimuth')
-parser.add_argument('--ele_classes', type=int, default=12, help='number of class for elevation')
-parser.add_argument('--inp_classes', type=int, default=24, help='number of class for inplane rotation')
+parser.add_argument('--bin_size', type=int, default=15, help='bin size for the euler angle classification')
 
-parser.add_argument('--output_dir', type=str, default=None, help='where to save the testig results')
+# dataset settings
 parser.add_argument('--dataset', type=str, default=None, help='testing dataset')
+parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere', help='subdirectory conatining the shape')
+parser.add_argument('--shape', type=str, default='MultiView', help='shape representation')
 parser.add_argument('--view_num', type=int, default=12, help='number of render images used in each sample')
 parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
 parser.add_argument('--random_model', action='store_true', help='whether use random model in testing')
+
+parser.add_argument('--output_dir', type=str, default=None, help='where to save the testig results')
 
 opt = parser.parse_args()
 print(opt)
@@ -37,19 +38,20 @@ print(opt)
 
 
 # ================CREATE NETWORK============================ #
+azi_classes, ele_classes, inp_classes = int(360 / opt.bin_size), int(180 / opt.bin_size), int(360 / opt.bin_size)
+
 if opt.shape is None:
     model = BaselineEstimator(img_feature_dim=opt.img_feature_dim,
-                              azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes)
+                              azi_classes=azi_classes, ele_classes=ele_classes, inp_classes=inp_classes)
 else:
     model = PoseEstimator(shape=opt.shape, shape_feature_dim=opt.shape_feature_dim, img_feature_dim=opt.img_feature_dim,
-                          azi_classes=opt.azi_classes, ele_classes=opt.ele_classes, inp_classes=opt.inp_classes,
-                          view_num=opt.view_num)
+                          azi_classes=azi_classes, ele_classes=ele_classes, inp_classes=inp_classes, view_num=opt.view_num)
+
 model.cuda()
 if not os.path.isfile(opt.model):
     raise ValueError('Non existing file: {0}'.format(opt.model))
 else:
     load_checkpoint(model, opt.model)
-bin_size = 360. / opt.azi_classes
 # ========================================================== #
 
 
@@ -78,8 +80,8 @@ if opt.dataset == 'Pascal3D':
         dataset_test = Pascal3D(root_dir=root_dir, annotation_file=annotation_file,
                                 cat_choice=[cat], train=False, random=False, shape=opt.shape, shape_dir=opt.shape_dir,
                                 view_num=opt.view_num, tour=opt.tour, random_model=opt.random_model)
-        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
-                                             predictions_path, logname)
+        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, opt.bin_size,
+                                             cat, predictions_path, logname)
 
 
 elif opt.dataset == 'ObjectNet3D':
@@ -89,8 +91,8 @@ elif opt.dataset == 'ObjectNet3D':
         dataset_test = Pascal3D(root_dir=root_dir, annotation_file=annotation_file, shape_dir=opt.shape_dir,
                                 cat_choice=[cat], train=False, random=False, keypoint=True, shape=opt.shape,
                                 view_num=opt.view_num, tour=opt.tour, random_model=opt.random_model)
-        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
-                                             predictions_path, logname)
+        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, opt.bin_size,
+                                             cat, predictions_path, logname)
 
 
 elif opt.dataset == 'LineMod':
@@ -99,8 +101,8 @@ elif opt.dataset == 'LineMod':
         dataset_test = Linemod(root_dir=root_dir, annotation_file=annotation_file,
                                cat_choice=[int(cat)], shape=opt.shape,
                                view_num=opt.view_num, tour=opt.tour, shape_dir=opt.shape_dir)
-        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
-                                             predictions_path, logname)
+        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, opt.bin_size,
+                                             cat, predictions_path, logname)
 
 
 elif opt.dataset == 'Pix3D':
@@ -113,8 +115,8 @@ elif opt.dataset == 'Pix3D':
         dataset_test = Pix3D(root_dir=root_dir, annotation_file=annotation_file,
                              cat_choice=[cat], shape=opt.shape, shape_dir=opt.shape_dir,
                              view_num=opt.view_num, tour=opt.tour, random_model=opt.random_model)
-        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, bin_size, cat,
-                                             predictions_path, logname)
+        Accs[cat], Meds[cat] = test_category(opt.shape, opt.batch_size, opt.dataset, dataset_test, model, opt.bin_size,
+                                             cat, predictions_path, logname)
 
 else:
     sys.exit(0)
