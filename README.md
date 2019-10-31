@@ -69,20 +69,17 @@ bash download_models.sh
 ## Training
 To train on the ObjectNet3D dataset with real images and coarse alignment:
 ```shell
-cd run
-bash train_ObjectNet3D.sh
+bash run/train_ObjectNet3D.sh
 ```
 
 To train on the Pascal3D dataset with real images and coarse alignment:
 ```shell
-cd run
-bash train_Pascal3D.sh
+bash run/train_Pascal3D.sh
 ```
 
 To train on the ShapeNetCore dataset with synthetic images and precise alignment:
 ```shell
-cd run
-bash train_ShapeNetCore.sh
+bash run/train_ShapeNetCore.sh
 ```
 
 ## Testing
@@ -90,8 +87,7 @@ While the network was trained on real or synthetic images, all the testing was d
 
 ### ObjectNet3D
 ```shell
-cd run
-bash test_ObjectNet3D.sh
+bash run/test_ObjectNet3D.sh
 ```
 You should obtain the results in Table 1 in the paper (*indicates testing on the **novel categories**):
 
@@ -107,8 +103,7 @@ You should obtain the results in Table 1 in the paper (*indicates testing on the
 ### Pascal3D+
 To test on the Pascal3D dataset with real images:
 ```shell
-cd run
-bash test_Pascal3D.sh
+bash run/test_Pascal3D.sh
 ```
 You should obtain the results in Table 2 in the paper (*indicates **category-agnostic**):
 
@@ -124,8 +119,7 @@ You should obtain the results in Table 2 in the paper (*indicates **category-agn
 
 ### Pix3D
 ```shell
-cd run
-bash test_Pix3D.sh
+bash run/test_Pix3D.sh
 ```
 You should obtain the results in Table 3 in the paper (*Accuracy* / *MedErr*):
 
