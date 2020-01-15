@@ -36,9 +36,12 @@ parser.add_argument('--shape_feature_dim', type=int, default=256, help='feature 
 parser.add_argument('--bin_size', type=int, default=15, help='bin size for the euler angle classification')
 
 # dataset settings
-parser.add_argument('--dataset', type=str, default=None, choices=['ObjectNet3D', 'Pascal3D', 'ShapeNetCore'], help='dataset')
-parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere', help='subdirectory conatining the shape')
-parser.add_argument('--shape', type=str, default='MultiView', help='shape representation')
+parser.add_argument('--dataset', type=str, default=None,
+                    choices=['ObjectNet3D', 'Pascal3D', 'ShapeNetCore'], help='dataset')
+parser.add_argument('--shape_dir', type=str, default='Renders_semi_sphere',
+                    choices=['Renders_semi_sphere', 'pointcloud'], help='subdirectory conatining the shape')
+parser.add_argument('--shape', type=str, default='MultiView',
+                    choices=['MultiView', 'PointCloud'], help='shape representation')
 parser.add_argument('--view_num', type=int, default=12, help='number of render images used in each sample')
 parser.add_argument('--tour', type=int, default=2, help='elevation tour for randomized references')
 parser.add_argument('--novel', action='store_true', help='whether to test on novel cats')
