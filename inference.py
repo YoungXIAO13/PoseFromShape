@@ -102,9 +102,9 @@ with torch.no_grad():
 
         out_reg = out[3].sigmoid().squeeze()
 
-        azi = ((pred_azi.float() + out_reg[0]) * (360. / opt.azi_classes)).item()
-        ele = (((pred_ele.float() + out_reg[1]) * (360. / opt.azi_classes)) - 90).item()
-        rol = (((pred_rol.float() + out_reg[2]) * (360. / opt.azi_classes)) - 180).item()
+        azi = ((pred_azi.float() + out_reg[0]) * opt.bin_size).item()
+        ele = (((pred_ele.float() + out_reg[1]) * opt.bin_size) - 90).item()
+        rol = (((pred_rol.float() + out_reg[2]) * opt.bin_size) - 180).item()
 
         # render the object under predicted pose
         output_path = opt.image_path
