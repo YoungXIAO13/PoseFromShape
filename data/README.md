@@ -24,6 +24,7 @@ apt-get install -y --no-install-recommends libboost-all-dev libcgal-dev libeigen
 ```
 and build it:
 ```
+cd virtual_scanner
 mkdir build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
