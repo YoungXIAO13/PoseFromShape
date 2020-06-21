@@ -11,14 +11,26 @@ at a time.
 
 ## Point Cloud Generation
 
-To generate **point cloud** from the .obj file for Pascal3D and ObjectNet3D.
+To generate point clouds for Pascal3D and ObjectNet3D.
 
-* Fork the virtual scanner from [O-CNN](https://github.com/wang-ps/O-CNN/tree/master/virtual_scanner)
-and build the executable file. This has been tested on ubuntu-16.04.
+First make sure that you have generated the correct .obj files by running 
+```
+python off2obj.py
+```
 
-* Make sure that you have generated the correct obj files by running 
-```python off2obj.py```
-after downloading the dataset.
+Then you need to get the dependencies for the virtual_canner:
+```
+apt-get install -y --no-install-recommends libboost-all-dev libcgal-dev libeigen3-dev
+```
+and build it:
+```
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make
+```
+
+You should find the **executable_virtual_scanner** in `./virtual_scanner/build/virtualscanner`
 
 * To generate point cloud for Pascal3D, run:
 ```
