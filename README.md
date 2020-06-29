@@ -16,12 +16,6 @@ If our project is helpful for your research, please consider citing:
 ```
 
 
-## Updates
-Release pre-trained model and training code with **Point Cloud**.
-
-See ```data/README.sh``` for more details in data preparation before training and testing.
-
-
 ## Table of Content
 * [Installation](#installation)
 * [Training](#training)
@@ -58,24 +52,8 @@ cd data
 bash prepare_data.sh
 ```
 
-To generate **point cloud** from the .obj file for Pascal3D and ObjectNet3D.
+To generate **point cloud** from the .obj file for Pascal3D and ObjectNet3D, check the [data](https://github.com/YoungXIAO13/PoseFromShape/blob/master/data/) folder
 
-* Fork the virtual scanner from [O-CNN](https://github.com/wang-ps/O-CNN/tree/master/virtual_scanner)
-and build the executable file. This has been tested on ubuntu-16.04.
-
-* Make sure that you have generated the correct obj files by running 
-```python off2obj.py```
-after downloading the dataset.
-
-* To generate point cloud for Pascal3D, run:
-```
-python point_cloud.py --dataset_dir Pascal3D --dataset_format Pascal3D --input CAD --virtualscanner #Path_of_the_executable_virtual_scanner
-```
-
-* To generate point cloud for ObjectNet3D, run:
-```
-python point_cloud.py --dataset_dir ObjectNet3D --dataset_format Pascal3D --input CAD/obj --virtualscanner #Path_of_the_executable_virtual_scanner
-```
 
 ### Pre-trained Models
 To download the pretrained models (Pascal3D, ObjectNet3D, ShapeNetCore):
