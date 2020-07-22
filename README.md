@@ -15,6 +15,11 @@ If our project is helpful for your research, please consider citing:
     year      = {2019}}
 ```
 
+## Updates 2020 July
+The generated point clouds of **Pascal3D** and **ObjectNet3D** can be directly downloaded from our repo.
+
+Please see ``./data/Pascal3D/pointcloud`` and ``./data/ObjectNet3D/pointcloud``
+
 
 ## Table of Content
 * [Installation](#installation)
