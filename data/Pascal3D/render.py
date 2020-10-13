@@ -8,8 +8,8 @@ sys.path.append('..')
 from render_utils import resize_padding, makeLamp, parent_obj_to_camera, clean_obj_lamp_and_mesh, render_obj_grid
 
     
-model_dir = 'CAD'
-render_dir = 'Renders_semi_sphere'
+model_dir = '/content/Master/data/Pascal3D/CAD'
+render_dir = '/content/Master/data/Pascal3D/Renders_semi_sphere'
 
 cats = [name for name in os.listdir(model_dir)]
 cats.sort()
