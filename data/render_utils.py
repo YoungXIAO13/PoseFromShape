@@ -317,11 +317,13 @@ def render_obj(obj, output_dir, azi, ele, rol, name, shape=[512, 512], forward=N
     else:
         bpy.ops.import_scene.obj(filepath=obj)
 
-    # normalize it and set the center
+    # normalize it and set the object origin as the 3D bounding box center
     for object in bpy.context.scene.objects:
         if object.name in ['Camera', 'Lamp'] or object.type == 'EMPTY':
             continue
         bpy.context.scene.objects.active = object
+        bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+        object.location = (0, 0, 0)
         max_dim = max(object.dimensions)
         object.dimensions = object.dimensions / max_dim if max_dim != 0 else object.dimensions
 
